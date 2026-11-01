@@ -8,10 +8,12 @@
 - [ ] Add database migrations and connection models
 
 ## Milestone 2 — Provider connectivity
-- [ ] Define provider adapter interface
-- [ ] Implement first mock bank provider
-- [ ] Implement second mock bank with a different payload shape
-- [ ] Add connection creation and sync request API
+- [x] Define provider adapter interface
+- [x] Implement first mock bank provider
+- [x] Implement second mock bank with a different credential and payload shape
+- [x] Add connection creation and sync request API
+
+The provider slice currently uses an in-memory connection service so the adapter contract and API can be exercised before persistence and Kafka are introduced. The next step is to persist connection/sync state in PostgreSQL and publish sync requests to Kafka instead of executing provider syncs inline.
 
 ## Milestone 3 — Event-driven sync
 - [ ] Publish `sync.requested` events
