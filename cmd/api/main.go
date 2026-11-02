@@ -3,30 +3,26 @@ package main
 import (
 	"log"
 	"net/http"
-	"os"
 	"time"
 
+	"github.com/anshsaluja/finlink/internal/config"
 	"github.com/anshsaluja/finlink/internal/httpserver"
 )
 
 func main() {
-	addr := envOrDefault("FINLINK_HTTP_ADDR", ":8080")
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	server := &http.Server{
-		Addr:              addr,
+		Addr:              cfg.HTTPAddr,
 		Handler:           httpserver.New(),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
-	log.Printf("finlink api listening on %s", addr)
+	log.Printf("finlink api listening on %s", cfg.HTTPAddr)
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatal(err)
 	}
-}
-
-func envOrDefault(key, fallback string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return fallback
 }
