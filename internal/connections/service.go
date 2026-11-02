@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
-	"sync"
 	"time"
 
 	"github.com/anshsaluja/finlink/internal/provider"
@@ -32,13 +31,16 @@ type SyncResult struct {
 }
 
 type Service struct {
-	registry    *provider.Registry
-	mu          sync.RWMutex
-	connections map[string]Connection
+	registry   *provider.Registry
+	repository Repository
 }
 
 func NewService(registry *provider.Registry) *Service {
-	return &Service{registry: registry, connections: make(map[string]Connection)}
+	return NewServiceWithRepository(registry, NewMemoryRepository())
+}
+
+func NewServiceWithRepository(registry *provider.Registry, repository Repository) *Service {
+	return &Service{registry: registry, repository: repository}
 }
 
 func (s *Service) Create(ctx context.Context, providerName string, credentials provider.Credentials) (Connection, error) {
@@ -51,18 +53,16 @@ func (s *Service) Create(ctx context.Context, providerName string, credentials p
 		return Connection{}, err
 	}
 	connection := Connection{ID: newID(), Provider: providerName, Institution: remote.Institution, Status: "connected", CreatedAt: time.Now().UTC(), externalID: remote.ExternalID}
-	s.mu.Lock()
-	s.connections[connection.ID] = connection
-	s.mu.Unlock()
+	if err := s.repository.Create(ctx, connection); err != nil {
+		return Connection{}, err
+	}
 	return connection, nil
 }
 
 func (s *Service) Sync(ctx context.Context, id string) (SyncResult, error) {
-	s.mu.RLock()
-	connection, ok := s.connections[id]
-	s.mu.RUnlock()
-	if !ok {
-		return SyncResult{}, ErrConnectionNotFound
+	connection, err := s.repository.Get(ctx, id)
+	if err != nil {
+		return SyncResult{}, err
 	}
 	adapter, ok := s.registry.Get(connection.Provider)
 	if !ok {
@@ -76,9 +76,9 @@ func (s *Service) Sync(ctx context.Context, id string) (SyncResult, error) {
 	connection.LastSyncedAt = &now
 	connection.Cursor = result.NextCursor
 	connection.Status = "healthy"
-	s.mu.Lock()
-	s.connections[id] = connection
-	s.mu.Unlock()
+	if err := s.repository.UpdateSyncState(ctx, connection); err != nil {
+		return SyncResult{}, err
+	}
 	return SyncResult{Connection: connection, Accounts: result.Accounts, Transactions: result.Transactions}, nil
 }
 
