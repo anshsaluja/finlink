@@ -53,6 +53,12 @@ func (s *Service) Create(ctx context.Context, providerName string, credentials p
 	return connection, nil
 }
 
+// Get returns the durable, public connection state without exposing provider credentials
+// or the provider's internal connection identifier.
+func (s *Service) Get(ctx context.Context, id string) (Connection, error) {
+	return s.repository.Get(ctx, id)
+}
+
 func (s *Service) SyncCursor(ctx context.Context, id string) (string, error) {
 	connection, err := s.repository.Get(ctx, id)
 	if err != nil { return "", err }

@@ -34,6 +34,7 @@ The worker consumes `sync.requested` with an explicit consumer group and commits
 - [x] Add transaction deduplication constraints and deterministic fallback fingerprints
 - [x] Integrate canonical persistence into Kafka sync worker
 - [x] Advance incremental sync cursors only after successful persistence
+- [x] Add bounded account/transaction read queries for the product surface
 
 The production worker executes provider sync → canonical normalization → atomic page persistence → cursor advancement → sync-run completion. A failed canonical write never advances the connection cursor, while replay remains safe through idempotent account upserts and transaction deduplication.
 
@@ -46,8 +47,11 @@ The production worker executes provider sync → canonical normalization → ato
 
 ## Milestone 6 — Product surface
 - [ ] Add React + TypeScript developer dashboard
+- [x] Add connection and canonical financial-data read APIs
 - [ ] Add connection and sync status views
 - [ ] Add transaction explorer
+
+The read API now exposes durable connection state plus canonical accounts and a bounded recent-transaction feed. This is the backend contract the first dashboard vertical slice will consume; the frontend itself is not yet counted as complete.
 
 ## Milestone 7 — Production engineering
 - [ ] Add unit and integration test coverage

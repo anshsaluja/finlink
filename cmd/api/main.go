@@ -11,6 +11,7 @@ import (
 
 	"github.com/anshsaluja/finlink/internal/config"
 	"github.com/anshsaluja/finlink/internal/connections"
+	"github.com/anshsaluja/finlink/internal/financialdata"
 	"github.com/anshsaluja/finlink/internal/httpserver"
 	"github.com/anshsaluja/finlink/internal/kafkaevents"
 	"github.com/anshsaluja/finlink/internal/provider"
@@ -44,10 +45,11 @@ func main() {
 		}
 	}()
 	syncService := syncs.NewService(syncs.NewSQLRepository(db), connectionService, publisher)
+	financialDataRepository := financialdata.NewSQLRepository(db)
 
 	server := &http.Server{
 		Addr:              cfg.HTTPAddr,
-		Handler:           httpserver.NewWithServices(connectionService, syncService),
+		Handler:           httpserver.NewWithServicesAndData(connectionService, syncService, financialDataRepository),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      15 * time.Second,

@@ -49,3 +49,45 @@ func (r *SQLRepository) Store(ctx context.Context, accounts []Account, transacti
 	if err := tx.Commit(); err != nil { return fmt.Errorf("commit financial data: %w", err) }
 	return nil
 }
+
+// AccountsByConnection returns canonical accounts for the dashboard/read API.
+func (r *SQLRepository) AccountsByConnection(ctx context.Context, connectionID string) ([]Account, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT connection_id, provider_external_id, name, type, currency, balance_cents, updated_at
+		FROM accounts WHERE connection_id=$1 ORDER BY name, provider_external_id`, connectionID)
+	if err != nil { return nil, fmt.Errorf("list accounts: %w", err) }
+	defer rows.Close()
+	accounts := make([]Account, 0)
+	for rows.Next() {
+		var a Account
+		if err := rows.Scan(&a.ConnectionID, &a.ProviderExternalID, &a.Name, &a.Type, &a.Currency, &a.BalanceCents, &a.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scan account: %w", err)
+		}
+		accounts = append(accounts, a)
+	}
+	if err := rows.Err(); err != nil { return nil, fmt.Errorf("iterate accounts: %w", err) }
+	return accounts, nil
+}
+
+// TransactionsByConnection returns the most recent canonical transactions with a bounded
+// limit so a dashboard request cannot accidentally scan an unbounded ledger.
+func (r *SQLRepository) TransactionsByConnection(ctx context.Context, connectionID string, limit int) ([]Transaction, error) {
+	if limit <= 0 || limit > 200 { limit = 100 }
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT t.connection_id, COALESCE(t.provider_external_id,''), a.provider_external_id,
+		       t.description, t.amount_cents, t.currency, t.posted_at, t.fingerprint
+		FROM transactions t JOIN accounts a ON a.id=t.account_id
+		WHERE t.connection_id=$1 ORDER BY t.posted_at DESC, t.id DESC LIMIT $2`, connectionID, limit)
+	if err != nil { return nil, fmt.Errorf("list transactions: %w", err) }
+	defer rows.Close()
+	transactions := make([]Transaction, 0)
+	for rows.Next() {
+		var t Transaction
+		if err := rows.Scan(&t.ConnectionID, &t.ProviderExternalID, &t.AccountProviderExternalID, &t.Description, &t.AmountCents, &t.Currency, &t.PostedAt, &t.Fingerprint); err != nil {
+			return nil, fmt.Errorf("scan transaction: %w", err)
+		}
+		transactions = append(transactions, t)
+	}
+	if err := rows.Err(); err != nil { return nil, fmt.Errorf("iterate transactions: %w", err) }
+	return transactions, nil
+}
