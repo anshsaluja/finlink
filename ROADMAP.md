@@ -46,12 +46,12 @@ The production worker executes provider sync → canonical normalization → ato
 - [ ] Add audit logging
 
 ## Milestone 6 — Product surface
-- [ ] Add React + TypeScript developer dashboard
+- [x] Add React + TypeScript developer dashboard
 - [x] Add connection and canonical financial-data read APIs
-- [ ] Add connection and sync status views
-- [ ] Add transaction explorer
+- [x] Add connection and sync status views
+- [x] Add transaction explorer
 
-The read API now exposes durable connection state plus canonical accounts and a bounded recent-transaction feed. This is the backend contract the first dashboard vertical slice will consume; the frontend itself is not yet counted as complete.
+The dashboard now implements the clean-user sandbox flow: choose a mock institution, create a connection, trigger an asynchronous sync, poll durable sync-run state, and refresh canonical accounts and recent transactions after success. It is configurable through `VITE_API_BASE_URL`. Public deployment and cross-origin production wiring are not counted as complete yet.
 
 ## Milestone 7 — Production engineering
 - [ ] Add unit and integration test coverage
