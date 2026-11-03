@@ -25,12 +25,17 @@ func TestNormalizeCanonicalizesAndFingerprints(t *testing.T) {
 	if repeated[0].Fingerprint != transactions[0].Fingerprint {
 		t.Fatalf("fingerprint changed: %q != %q", repeated[0].Fingerprint, transactions[0].Fingerprint)
 	}
+	input.Transactions[0].ExternalID = "provider-reissued-id"
+	_, reissued := Normalize("conn-1", input, now)
+	if reissued[0].Fingerprint != transactions[0].Fingerprint {
+		t.Fatal("fallback fingerprint must not depend on provider transaction id")
+	}
 }
 
 func TestFingerprintChangesWithFinancialIdentity(t *testing.T) {
 	posted := time.Date(2026, 11, 1, 12, 30, 0, 0, time.UTC)
-	base := transactionFingerprint("conn", "acct", "txn", "Coffee", -525, "USD", posted)
-	changed := transactionFingerprint("conn", "acct", "txn", "Coffee", -625, "USD", posted)
+	base := transactionFingerprint("conn", "acct", "Coffee", -525, "USD", posted)
+	changed := transactionFingerprint("conn", "acct", "Coffee", -625, "USD", posted)
 	if base == changed {
 		t.Fatal("amount change must change fingerprint")
 	}
