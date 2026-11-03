@@ -10,8 +10,8 @@ permissions:
   contents: read
 
 jobs:
-  backend:
-    name: Go backend
+  backend-format:
+    name: Go formatting
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -20,7 +20,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache: true
+          cache: false
       - name: Verify formatting
         run: |
           unformatted="$(gofmt -l .)"
@@ -29,6 +29,18 @@ jobs:
             echo "$unformatted"
             exit 1
           fi
+
+  backend-test:
+    name: Go tests and vet
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
       - name: Test
         run: go test ./...
       - name: Vet
