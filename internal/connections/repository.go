@@ -16,6 +16,7 @@ var ErrConnectionAlreadyExists = errors.New("connection already exists")
 type Repository interface {
 	Create(context.Context, Connection) error
 	Get(context.Context, string) (Connection, error)
+	FindByProviderExternalID(context.Context, string, string) (Connection, error)
 	UpdateSyncState(context.Context, Connection) error
 }
 
@@ -53,6 +54,14 @@ func (r *SQLRepository) Get(ctx context.Context, id string) (Connection, error) 
 	if err != nil {
 		return Connection{}, fmt.Errorf("get connection: %w", err)
 	}
+	return c, nil
+}
+
+func (r *SQLRepository) FindByProviderExternalID(ctx context.Context, provider, externalID string) (Connection, error) {
+	var c Connection
+	err := r.db.QueryRowContext(ctx, `SELECT id, provider, institution, status, created_at, last_synced_at, cursor, external_id FROM connections WHERE provider = $1 AND external_id = $2`, provider, externalID).Scan(&c.ID, &c.Provider, &c.Institution, &c.Status, &c.CreatedAt, &c.LastSyncedAt, &c.Cursor, &c.externalID)
+	if errors.Is(err, sql.ErrNoRows) { return Connection{}, ErrConnectionNotFound }
+	if err != nil { return Connection{}, fmt.Errorf("find connection: %w", err) }
 	return c, nil
 }
 
