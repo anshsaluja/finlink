@@ -82,6 +82,8 @@ func (s *server) createConnection(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "provider_not_found", "provider is not supported")
 	case errors.Is(err, provider.ErrInvalidCredentials):
 		writeError(w, http.StatusUnauthorized, "invalid_credentials", "provider credentials are invalid")
+	case errors.Is(err, connections.ErrConnectionAlreadyExists):
+		writeError(w, http.StatusConflict, "connection_already_exists", "institution account is already connected")
 	case err != nil:
 		writeError(w, http.StatusBadGateway, "provider_error", "provider connection failed")
 	default:
