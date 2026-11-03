@@ -5,10 +5,14 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+
+	"github.com/lib/pq"
 )
 
 // Repository owns durable connection state. Implementations must preserve the
 // provider external ID because it is required for subsequent incremental syncs.
+var ErrConnectionAlreadyExists = errors.New("connection already exists")
+
 type Repository interface {
 	Create(context.Context, Connection) error
 	Get(context.Context, string) (Connection, error)
@@ -27,6 +31,10 @@ func (r *SQLRepository) Create(ctx context.Context, c Connection) error {
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $7)`,
 		c.ID, c.Provider, c.Institution, c.externalID, c.Status, c.Cursor, c.CreatedAt)
 	if err != nil {
+		var pgErr *pq.Error
+		if errors.As(err, &pgErr) && string(pgErr.Code) == "23505" && pgErr.Constraint == "connections_provider_external_id_key" {
+			return ErrConnectionAlreadyExists
+		}
 		return fmt.Errorf("insert connection: %w", err)
 	}
 	return nil
