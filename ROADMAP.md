@@ -21,12 +21,13 @@ The initial PostgreSQL schema models durable provider connections and sync runs,
 Connection state now sits behind a repository interface instead of being owned by the service. A PostgreSQL implementation persists provider external IDs, status, cursors, and last-sync timestamps against the migration schema; the in-memory implementation remains available for isolated tests. Runtime database initialization is the remaining persistence wiring step.
 
 ## Milestone 3 — Event-driven sync
-- [ ] Publish `sync.requested` events
+- [x] Add durable sync-run repository and `sync.requested` event contract
+- [ ] Publish `sync.requested` events to Kafka
 - [ ] Add Kafka sync consumer
 - [ ] Persist raw sync metadata
 - [ ] Add retry and dead-letter handling
 
-The next product slice should initialize PostgreSQL at API startup, then change the sync endpoint to create a sync run and publish `sync.requested` instead of calling providers inline.
+Sync requests now have a dedicated service boundary that creates idempotent sync-run records before publishing a typed `sync.requested` event. Both in-memory and PostgreSQL repositories implement the same contract. The next product slice is Kafka producer wiring plus runtime PostgreSQL initialization, followed by a worker consumer that performs provider syncs asynchronously.
 
 ## Milestone 4 — Canonical financial data
 - [ ] Normalize accounts
