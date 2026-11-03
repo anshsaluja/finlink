@@ -49,7 +49,12 @@ func (s *Service) Create(ctx context.Context, providerName string, credentials p
 	remote, err := adapter.Connect(ctx, credentials)
 	if err != nil { return Connection{}, err }
 	connection := Connection{ID: newID(), Provider: providerName, Institution: remote.Institution, Status: "connected", CreatedAt: time.Now().UTC(), externalID: remote.ExternalID}
-	if err := s.repository.Create(ctx, connection); err != nil { return Connection{}, err }
+	if err := s.repository.Create(ctx, connection); err != nil {
+		if errors.Is(err, ErrConnectionAlreadyExists) {
+			return s.repository.FindByProviderExternalID(ctx, providerName, remote.ExternalID)
+		}
+		return Connection{}, err
+	}
 	return connection, nil
 }
 
