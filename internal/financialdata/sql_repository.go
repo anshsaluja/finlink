@@ -41,7 +41,7 @@ func (r *SQLRepository) Store(ctx context.Context, accounts []Account, transacti
 		_, err = tx.ExecContext(ctx, `
 			INSERT INTO transactions (connection_id, account_id, provider_external_id, description, amount_cents, currency, posted_at, fingerprint)
 			VALUES ($1,$2,NULLIF($3,''),$4,$5,$6,$7,$8)
-			ON CONFLICT (connection_id, fingerprint) DO NOTHING`, transaction.ConnectionID, accountID,
+			ON CONFLICT DO NOTHING`, transaction.ConnectionID, accountID,
 			transaction.ProviderExternalID, transaction.Description, transaction.AmountCents, transaction.Currency,
 			transaction.PostedAt, transaction.Fingerprint)
 		if err != nil { return fmt.Errorf("insert transaction %q: %w", transaction.ProviderExternalID, err) }
