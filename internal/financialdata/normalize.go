@@ -3,6 +3,7 @@ package financialdata
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"strconv"
 	"strings"
 	"time"
 
@@ -36,7 +37,7 @@ func Normalize(connectionID string, result provider.SyncResult, now time.Time) (
 }
 
 func transactionFingerprint(connectionID, accountID, externalID, description string, amount int64, currency string, postedAt time.Time) string {
-	identity := strings.Join([]string{connectionID, accountID, externalID, description, currency, postedAt.UTC().Format(time.RFC3339Nano)}, "\x1f")
-	sum := sha256.Sum256(append([]byte(identity), []byte(strings.TrimSpace(string(rune(amount))))...))
+	identity := strings.Join([]string{connectionID, accountID, externalID, description, strconv.FormatInt(amount, 10), currency, postedAt.UTC().Format(time.RFC3339Nano)}, "\x1f")
+	sum := sha256.Sum256([]byte(identity))
 	return hex.EncodeToString(sum[:])
 }
