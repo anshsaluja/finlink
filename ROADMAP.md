@@ -55,7 +55,9 @@ The dashboard now implements the clean-user sandbox flow: choose a mock institut
 
 ## Milestone 7 — Production engineering
 - [ ] Add unit and integration test coverage
-- [ ] Add CI
+- [x] Add CI
 - [ ] Add metrics and tracing
 - [ ] Add load testing
 - [ ] Add deployment configuration
+
+GitHub Actions now validates Go formatting, tests, and vetting plus dashboard TypeScript checking and production builds on pushes and pull requests to `dev` and `main`. A passing run is required before treating the current checkpoint as verified.
