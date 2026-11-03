@@ -59,6 +59,16 @@ func (s *Service) Create(ctx context.Context, providerName string, credentials p
 	return connection, nil
 }
 
+// SyncCursor implements the sync request service's connection reader without
+// exposing provider credentials or external identifiers across package boundaries.
+func (s *Service) SyncCursor(ctx context.Context, id string) (string, error) {
+	connection, err := s.repository.Get(ctx, id)
+	if err != nil {
+		return "", err
+	}
+	return connection.Cursor, nil
+}
+
 func (s *Service) Sync(ctx context.Context, id string) (SyncResult, error) {
 	connection, err := s.repository.Get(ctx, id)
 	if err != nil {

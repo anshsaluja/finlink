@@ -8,6 +8,7 @@ import (
 
 	"github.com/anshsaluja/finlink/internal/connections"
 	"github.com/anshsaluja/finlink/internal/provider"
+	"github.com/anshsaluja/finlink/internal/syncs"
 )
 
 type healthResponse struct {
@@ -23,15 +24,23 @@ type createConnectionRequest struct {
 
 type server struct {
 	connections *connections.Service
+	syncs       *syncs.Service
 }
 
 func New() http.Handler {
 	registry := provider.NewRegistry(provider.MockNorthstar{}, provider.MockHarbor{})
-	s := &server{connections: connections.NewService(registry)}
+	connectionService := connections.NewService(registry)
+	syncService := syncs.NewService(syncs.NewMemoryRepository(), connectionService, &syncs.MemoryPublisher{})
+	return NewWithServices(connectionService, syncService)
+}
+
+func NewWithServices(connectionService *connections.Service, syncService *syncs.Service) http.Handler {
+	s := &server{connections: connectionService, syncs: syncService}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", health)
 	mux.HandleFunc("POST /v1/connections", s.createConnection)
-	mux.HandleFunc("POST /v1/connections/{id}/sync", s.syncConnection)
+	mux.HandleFunc("POST /v1/connections/{id}/sync", s.requestSync)
+	mux.HandleFunc("GET /v1/sync-runs/{id}", s.getSyncRun)
 	return mux
 }
 
@@ -57,18 +66,6 @@ func (s *server) createConnection(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadGateway, "provider_error", "provider connection failed")
 	default:
 		writeJSON(w, http.StatusCreated, connection)
-	}
-}
-
-func (s *server) syncConnection(w http.ResponseWriter, r *http.Request) {
-	result, err := s.connections.Sync(r.Context(), r.PathValue("id"))
-	switch {
-	case errors.Is(err, connections.ErrConnectionNotFound):
-		writeError(w, http.StatusNotFound, "connection_not_found", "connection does not exist")
-	case err != nil:
-		writeError(w, http.StatusBadGateway, "sync_failed", "provider sync failed")
-	default:
-		writeJSON(w, http.StatusOK, result)
 	}
 }
 

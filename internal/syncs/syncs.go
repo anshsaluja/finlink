@@ -69,11 +69,15 @@ func (s *Service) Request(ctx context.Context, connectionID, idempotencyKey stri
 	if err != nil {
 		return Run{}, fmt.Errorf("create sync run: %w", err)
 	}
-	event := RequestedEvent{RunID: run.ID, ConnectionID: connectionID, IdempotencyKey: idempotencyKey, Cursor: cursor, RequestedAt: run.RequestedAt}
+	event := RequestedEvent{RunID: run.ID, ConnectionID: connectionID, IdempotencyKey: run.IdempotencyKey, Cursor: run.CursorBefore, RequestedAt: run.RequestedAt}
 	if err := s.publisher.PublishSyncRequested(ctx, event); err != nil {
 		return Run{}, fmt.Errorf("publish sync.requested: %w", err)
 	}
 	return run, nil
+}
+
+func (s *Service) Get(ctx context.Context, id int64) (Run, error) {
+	return s.runs.Get(ctx, id)
 }
 
 func newKey() string {

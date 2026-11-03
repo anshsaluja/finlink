@@ -22,12 +22,14 @@ Connection state now sits behind a repository interface instead of being owned b
 
 ## Milestone 3 — Event-driven sync
 - [x] Add durable sync-run repository and `sync.requested` event contract
+- [x] Route HTTP sync requests through the durable sync-run boundary
+- [x] Add sync-run status API and request idempotency coverage
 - [ ] Publish `sync.requested` events to Kafka
 - [ ] Add Kafka sync consumer
 - [ ] Persist raw sync metadata
 - [ ] Add retry and dead-letter handling
 
-Sync requests now have a dedicated service boundary that creates idempotent sync-run records before publishing a typed `sync.requested` event. Both in-memory and PostgreSQL repositories implement the same contract. The next product slice is Kafka producer wiring plus runtime PostgreSQL initialization, followed by a worker consumer that performs provider syncs asynchronously.
+`POST /v1/connections/{id}/sync` now returns `202 Accepted` with a durable sync-run resource and a `Location` header instead of performing provider I/O inline. `GET /v1/sync-runs/{id}` exposes workflow state for polling. The in-memory composition is intentionally retained for isolated API tests; production composition still needs PostgreSQL initialization and the real Kafka publisher/consumer before this milestone is complete.
 
 ## Milestone 4 — Canonical financial data
 - [ ] Normalize accounts
