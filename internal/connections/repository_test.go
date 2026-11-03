@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	"github.com/anshsaluja/finlink/internal/provider"
 )
 
 func TestMemoryRepositoryLifecycle(t *testing.T) {
@@ -42,5 +44,21 @@ func TestMemoryRepositoryMissingConnection(t *testing.T) {
 	repo := NewMemoryRepository()
 	if _, err := repo.Get(context.Background(), "missing"); err != ErrConnectionNotFound {
 		t.Fatalf("expected ErrConnectionNotFound, got %v", err)
+	}
+}
+
+func TestReconnectReusesExistingConnectionAndSyncState(t *testing.T) {
+	ctx := context.Background()
+	repo := NewMemoryRepository()
+	svc := NewServiceWithRepository(provider.NewRegistry(provider.MockNorthstar{}), repo)
+	credentials := provider.Credentials{"username": "demo", "password": "demo"}
+	first, err := svc.Create(ctx, "northstar", credentials)
+	if err != nil { t.Fatal(err) }
+	at := time.Now().UTC()
+	if err := svc.MarkSynced(ctx, first.ID, "northstar:1", at); err != nil { t.Fatal(err) }
+	again, err := svc.Create(ctx, "northstar", credentials)
+	if err != nil { t.Fatal(err) }
+	if again.ID != first.ID || again.Cursor != "northstar:1" || again.Status != "healthy" || again.LastSyncedAt == nil {
+		t.Fatalf("reconnect should preserve connection and sync state: first=%+v again=%+v", first, again)
 	}
 }
