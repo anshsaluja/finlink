@@ -32,11 +32,14 @@ Connection state now sits behind a repository interface instead of being owned b
 `POST /v1/connections/{id}/sync` now returns `202 Accepted` with a durable sync-run resource and a `Location` header instead of performing provider I/O inline. `GET /v1/sync-runs/{id}` exposes workflow state for polling. The in-memory composition is intentionally retained for isolated API tests; production composition still needs PostgreSQL initialization and the real Kafka publisher/consumer before this milestone is complete.
 
 ## Milestone 4 — Canonical financial data
-- [ ] Normalize accounts
-- [ ] Normalize transactions
-- [ ] Add idempotent writes
-- [ ] Add transaction deduplication
-- [ ] Add incremental sync cursors
+- [x] Define and normalize canonical accounts
+- [x] Define and normalize canonical transactions
+- [x] Add PostgreSQL account/transaction schema and idempotent repository writes
+- [x] Add transaction deduplication constraints and deterministic fallback fingerprints
+- [ ] Integrate canonical persistence into Kafka sync worker
+- [ ] Advance incremental sync cursors only after successful persistence
+
+Provider sync payloads now normalize into provider-independent account and transaction models. PostgreSQL uniqueness constraints cover provider transaction IDs and deterministic fingerprints, while account upserts and transaction inserts execute atomically for a provider page. This persistence layer is ready to be called by the upcoming Kafka consumer; cursor advancement remains deliberately unfinished until that worker can commit data successfully.
 
 ## Milestone 5 — Delivery and reliability
 - [ ] Add webhooks
