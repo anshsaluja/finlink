@@ -23,9 +23,9 @@
 - [x] Publish `sync.requested` events to Kafka
 - [x] Add Kafka sync consumer and worker execution path
 - [x] Persist sync lifecycle metadata and result counts
-- [ ] Add bounded retries and dead-letter handling
+- [x] Add bounded retries and dead-letter handling
 
-The worker consumes `sync.requested` with an explicit consumer group and only commits a Kafka offset after successful processing. Sync runs transition through running/completed/failed with timestamps, cursors, counts, and failure metadata. Failed messages remain uncommitted for replay; bounded retry and DLQ policy is still intentionally unfinished.
+The worker consumes `sync.requested` with an explicit consumer group and commits Kafka offsets only after successful processing or confirmed DLQ publication. Processing uses a configurable bounded retry budget with backoff. Exhausted and malformed messages are published to a dedicated dead-letter topic with source coordinates, attempt count, and failure metadata before their source offsets are committed.
 
 ## Milestone 4 — Canonical financial data
 - [x] Define and normalize canonical accounts
@@ -35,7 +35,7 @@ The worker consumes `sync.requested` with an explicit consumer group and only co
 - [x] Integrate canonical persistence into Kafka sync worker
 - [x] Advance incremental sync cursors only after successful persistence
 
-The production worker now executes provider sync → canonical normalization → atomic page persistence → cursor advancement → sync-run completion. A failed canonical write never advances the connection cursor, while replay remains safe through idempotent account upserts and transaction deduplication.
+The production worker executes provider sync → canonical normalization → atomic page persistence → cursor advancement → sync-run completion. A failed canonical write never advances the connection cursor, while replay remains safe through idempotent account upserts and transaction deduplication.
 
 ## Milestone 5 — Delivery and reliability
 - [ ] Add webhooks
