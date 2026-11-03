@@ -45,57 +45,57 @@ func NewServiceWithRepository(registry *provider.Registry, repository Repository
 
 func (s *Service) Create(ctx context.Context, providerName string, credentials provider.Credentials) (Connection, error) {
 	adapter, ok := s.registry.Get(providerName)
-	if !ok {
-		return Connection{}, ErrProviderNotFound
-	}
+	if !ok { return Connection{}, ErrProviderNotFound }
 	remote, err := adapter.Connect(ctx, credentials)
-	if err != nil {
-		return Connection{}, err
-	}
+	if err != nil { return Connection{}, err }
 	connection := Connection{ID: newID(), Provider: providerName, Institution: remote.Institution, Status: "connected", CreatedAt: time.Now().UTC(), externalID: remote.ExternalID}
-	if err := s.repository.Create(ctx, connection); err != nil {
-		return Connection{}, err
-	}
+	if err := s.repository.Create(ctx, connection); err != nil { return Connection{}, err }
 	return connection, nil
 }
 
-// SyncCursor implements the sync request service's connection reader without
-// exposing provider credentials or external identifiers across package boundaries.
 func (s *Service) SyncCursor(ctx context.Context, id string) (string, error) {
 	connection, err := s.repository.Get(ctx, id)
-	if err != nil {
-		return "", err
-	}
+	if err != nil { return "", err }
 	return connection.Cursor, nil
 }
 
+// FetchSyncPage executes a provider sync without mutating durable connection state.
+// Workers call MarkSynced only after canonical data has been persisted successfully.
+func (s *Service) FetchSyncPage(ctx context.Context, id, cursor string) (provider.SyncResult, error) {
+	connection, err := s.repository.Get(ctx, id)
+	if err != nil { return provider.SyncResult{}, err }
+	adapter, ok := s.registry.Get(connection.Provider)
+	if !ok { return provider.SyncResult{}, ErrProviderNotFound }
+	return adapter.Sync(ctx, connection.externalID, cursor)
+}
+
+func (s *Service) MarkSynced(ctx context.Context, id, cursor string, at time.Time) error {
+	connection, err := s.repository.Get(ctx, id)
+	if err != nil { return err }
+	at = at.UTC()
+	connection.LastSyncedAt = &at
+	connection.Cursor = cursor
+	connection.Status = "healthy"
+	return s.repository.UpdateSyncState(ctx, connection)
+}
+
+// Sync remains useful for direct/local callers. The asynchronous production path uses
+// FetchSyncPage + persistence + MarkSynced so cursors never advance before data storage.
 func (s *Service) Sync(ctx context.Context, id string) (SyncResult, error) {
 	connection, err := s.repository.Get(ctx, id)
-	if err != nil {
-		return SyncResult{}, err
-	}
-	adapter, ok := s.registry.Get(connection.Provider)
-	if !ok {
-		return SyncResult{}, ErrProviderNotFound
-	}
-	result, err := adapter.Sync(ctx, connection.externalID, connection.Cursor)
-	if err != nil {
-		return SyncResult{}, err
-	}
+	if err != nil { return SyncResult{}, err }
+	result, err := s.FetchSyncPage(ctx, id, connection.Cursor)
+	if err != nil { return SyncResult{}, err }
 	now := time.Now().UTC()
+	if err := s.MarkSynced(ctx, id, result.NextCursor, now); err != nil { return SyncResult{}, err }
 	connection.LastSyncedAt = &now
 	connection.Cursor = result.NextCursor
 	connection.Status = "healthy"
-	if err := s.repository.UpdateSyncState(ctx, connection); err != nil {
-		return SyncResult{}, err
-	}
 	return SyncResult{Connection: connection, Accounts: result.Accounts, Transactions: result.Transactions}, nil
 }
 
 func newID() string {
 	var b [8]byte
-	if _, err := rand.Read(b[:]); err != nil {
-		return time.Now().UTC().Format("20060102150405.000000000")
-	}
+	if _, err := rand.Read(b[:]); err != nil { return time.Now().UTC().Format("20060102150405.000000000") }
 	return hex.EncodeToString(b[:])
 }

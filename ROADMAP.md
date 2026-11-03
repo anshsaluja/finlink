@@ -8,8 +8,6 @@
 - [x] Add database migrations and connection/sync-run models
 - [ ] Add structured logging
 
-The initial PostgreSQL schema models durable provider connections and sync runs, including incremental cursors, sync status, idempotency keys, counts, timestamps, and failure metadata. Configuration for the API, database, and Kafka is centralized under `internal/config`.
-
 ## Milestone 2 — Provider connectivity
 - [x] Define provider adapter interface
 - [x] Implement first mock bank provider
@@ -18,28 +16,26 @@ The initial PostgreSQL schema models durable provider connections and sync runs,
 - [x] Add repository boundary and PostgreSQL connection repository
 - [x] Wire PostgreSQL driver and runtime database lifecycle
 
-Production API composition now opens and health-checks PostgreSQL at startup and injects SQL-backed connection and sync-run repositories. The in-memory composition remains available only for isolated API tests.
-
 ## Milestone 3 — Event-driven sync
 - [x] Add durable sync-run repository and `sync.requested` event contract
 - [x] Route HTTP sync requests through the durable sync-run boundary
 - [x] Add sync-run status API and request idempotency coverage
 - [x] Publish `sync.requested` events to Kafka
-- [ ] Add Kafka sync consumer
-- [ ] Persist raw sync metadata
-- [ ] Add retry and dead-letter handling
+- [x] Add Kafka sync consumer and worker execution path
+- [x] Persist sync lifecycle metadata and result counts
+- [ ] Add bounded retries and dead-letter handling
 
-`POST /v1/connections/{id}/sync` now persists the sync run in PostgreSQL before publishing a keyed `sync.requested` message to Kafka with all-replica acknowledgement. `GET /v1/sync-runs/{id}` exposes durable workflow state for polling. The next slice is the consumer/worker that executes provider syncs and only advances state after canonical data commits.
+The worker consumes `sync.requested` with an explicit consumer group and only commits a Kafka offset after successful processing. Sync runs transition through running/completed/failed with timestamps, cursors, counts, and failure metadata. Failed messages remain uncommitted for replay; bounded retry and DLQ policy is still intentionally unfinished.
 
 ## Milestone 4 — Canonical financial data
 - [x] Define and normalize canonical accounts
 - [x] Define and normalize canonical transactions
 - [x] Add PostgreSQL account/transaction schema and idempotent repository writes
 - [x] Add transaction deduplication constraints and deterministic fallback fingerprints
-- [ ] Integrate canonical persistence into Kafka sync worker
-- [ ] Advance incremental sync cursors only after successful persistence
+- [x] Integrate canonical persistence into Kafka sync worker
+- [x] Advance incremental sync cursors only after successful persistence
 
-Provider sync payloads now normalize into provider-independent account and transaction models. PostgreSQL uniqueness constraints cover provider transaction IDs and deterministic fingerprints, while account upserts and transaction inserts execute atomically for a provider page. This persistence layer is ready to be called by the Kafka consumer; cursor advancement remains deliberately unfinished until that worker can commit data successfully.
+The production worker now executes provider sync → canonical normalization → atomic page persistence → cursor advancement → sync-run completion. A failed canonical write never advances the connection cursor, while replay remains safe through idempotent account upserts and transaction deduplication.
 
 ## Milestone 5 — Delivery and reliability
 - [ ] Add webhooks
