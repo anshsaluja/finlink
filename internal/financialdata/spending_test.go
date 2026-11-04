@@ -38,10 +38,23 @@ func TestSummarizeSpendingDistinctPurchasesWithoutProviderIDs(t *testing.T) {
   {ConnectionID:"c1", AccountProviderExternalID:"a1", Description:"Starbucks", AmountCents:500, Currency:"USD", PostedAt:day},
  }
  summary := SummarizeSpending(transactions, day, "USD")
- if summary.TotalCents != 1200 || summary.TransactionCount != 2 {
-  t.Fatalf("different amounts must not be deduplicated, but identical fallback identities should be: %+v", summary)
+ if summary.TotalCents != 1700 || summary.TransactionCount != 3 {
+  t.Fatalf("purchases without stable identifiers must not be deduplicated: %+v", summary)
  }
- if len(summary.Merchants) != 1 || summary.Merchants[0].Name != "Starbucks" || summary.Merchants[0].Count != 2 {
+ if len(summary.Merchants) != 1 || summary.Merchants[0].Name != "Starbucks" || summary.Merchants[0].Count != 3 {
   t.Fatalf("merchant capitalization and whitespace must be normalized: %+v", summary.Merchants)
+ }
+}
+
+func TestSummarizeSpendingDeduplicatesFingerprints(t *testing.T) {
+ day := time.Date(2026, 3, 5, 12, 0, 0, 0, time.UTC)
+ transactions := []Transaction{
+  {ConnectionID:"c1", AccountProviderExternalID:"a1", Fingerprint:"same", Description:"Coffee", AmountCents:500, Currency:"USD", PostedAt:day},
+  {ConnectionID:"c1", AccountProviderExternalID:"a1", Fingerprint:"same", Description:"Coffee", AmountCents:500, Currency:"USD", PostedAt:day},
+  {ConnectionID:"c1", AccountProviderExternalID:"a2", Fingerprint:"same", Description:"Coffee", AmountCents:500, Currency:"USD", PostedAt:day},
+ }
+ summary := SummarizeSpending(transactions, day, "USD")
+ if summary.TotalCents != 1000 || summary.TransactionCount != 2 {
+  t.Fatalf("fingerprints should deduplicate only within their connection and account: %+v", summary)
  }
 }
