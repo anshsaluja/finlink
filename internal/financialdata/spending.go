@@ -2,6 +2,7 @@ package financialdata
 
 import (
  "sort"
+ "strconv"
  "strings"
  "time"
 )
@@ -36,12 +37,12 @@ func SummarizeSpending(transactions []Transaction, month time.Time, currency str
   if isTransfer(description) { continue }
   identity := strings.TrimSpace(tx.ProviderExternalID)
   if identity == "" { identity = strings.TrimSpace(tx.Fingerprint) }
-  if identity == "" { identity = tx.PostedAt.UTC().Format(time.RFC3339Nano) + "|" + description + "|" + tx.AccountProviderExternalID }
+  if identity == "" { identity = tx.PostedAt.UTC().Format(time.RFC3339Nano) + "|" + description + "|" + tx.AccountProviderExternalID + "|" + strconv.FormatInt(tx.AmountCents, 10) }
   key := tx.ConnectionID + "|" + tx.AccountProviderExternalID + "|" + identity
   if seen[key] { continue }
   seen[key] = true
   category := categorize(description)
-  merchant := strings.TrimSpace(tx.Description)
+  merchant := normalizeMerchant(tx.Description)
   if merchant == "" { merchant = "Unknown merchant" }
   addGroup(categories, category, tx.AmountCents)
   addGroup(merchants, merchant, tx.AmountCents)
@@ -51,6 +52,10 @@ func SummarizeSpending(transactions []Transaction, month time.Time, currency str
  result.Categories = sortedGroups(categories)
  result.Merchants = sortedGroups(merchants)
  return result
+}
+// normalizeMerchant groups casing and repeated whitespace without inventing merchant identities.
+func normalizeMerchant(description string) string {
+ return strings.ToLower(strings.Join(strings.Fields(description), " "))
 }
 func addGroup(groups map[string]*SpendingGroup, name string, cents int64) {
  if groups[name] == nil { groups[name] = &SpendingGroup{Name:name} }
