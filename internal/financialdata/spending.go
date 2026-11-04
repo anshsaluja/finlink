@@ -2,7 +2,6 @@ package financialdata
 
 import (
  "sort"
- "strconv"
  "strings"
  "time"
 )
@@ -37,10 +36,13 @@ func SummarizeSpending(transactions []Transaction, month time.Time, currency str
   if isTransfer(description) { continue }
   identity := strings.TrimSpace(tx.ProviderExternalID)
   if identity == "" { identity = strings.TrimSpace(tx.Fingerprint) }
-  if identity == "" { identity = tx.PostedAt.UTC().Format(time.RFC3339Nano) + "|" + description + "|" + tx.AccountProviderExternalID + "|" + strconv.FormatInt(tx.AmountCents, 10) }
-  key := tx.ConnectionID + "|" + tx.AccountProviderExternalID + "|" + identity
-  if seen[key] { continue }
-  seen[key] = true
+  // Without a provider ID or fingerprint, distinct purchases may share the
+  // same timestamp, amount, and merchant. Never infer duplicates from those fields.
+  if identity != "" {
+   key := tx.ConnectionID + "|" + tx.AccountProviderExternalID + "|" + identity
+   if seen[key] { continue }
+   seen[key] = true
+  }
   category := categorize(description)
   merchant := normalizeMerchant(tx.Description)
   if merchant == "" { merchant = "Unknown merchant" }
