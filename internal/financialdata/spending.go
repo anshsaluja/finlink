@@ -55,7 +55,9 @@ func SummarizeSpending(transactions []Transaction, month time.Time, currency str
 }
 // normalizeMerchant groups casing and repeated whitespace without inventing merchant identities.
 func normalizeMerchant(description string) string {
- return strings.ToLower(strings.Join(strings.Fields(description), " "))
+ normalized := strings.ToLower(strings.Join(strings.Fields(description), " "))
+ if normalized == "" { return "" }
+ return strings.ToUpper(normalized[:1]) + normalized[1:]
 }
 func addGroup(groups map[string]*SpendingGroup, name string, cents int64) {
  if groups[name] == nil { groups[name] = &SpendingGroup{Name:name} }
