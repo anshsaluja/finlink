@@ -24,12 +24,12 @@ type Account struct {
 }
 
 type Transaction struct {
-	ExternalID       string
+	ExternalID        string
 	AccountExternalID string
-	Description      string
-	AmountCents      int64
-	Currency         string
-	PostedAt         time.Time
+	Description       string
+	AmountCents       int64
+	Currency          string
+	PostedAt          time.Time
 }
 
 type SyncResult struct {

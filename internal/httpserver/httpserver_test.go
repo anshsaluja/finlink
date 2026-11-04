@@ -64,7 +64,9 @@ func TestSyncRequestIsIdempotent(t *testing.T) {
 	if createdResponse.Code != http.StatusCreated {
 		t.Fatalf("create status=%d body=%s", createdResponse.Code, createdResponse.Body.String())
 	}
-	var created struct{ ID string `json:"id"` }
+	var created struct {
+		ID string `json:"id"`
+	}
 	if err := json.NewDecoder(createdResponse.Body).Decode(&created); err != nil {
 		t.Fatal(err)
 	}
@@ -78,7 +80,9 @@ func TestSyncRequestIsIdempotent(t *testing.T) {
 		if res.Code != http.StatusAccepted {
 			t.Fatalf("attempt %d status=%d body=%s", i, res.Code, res.Body.String())
 		}
-		var run struct{ ID int64 `json:"id"` }
+		var run struct {
+			ID int64 `json:"id"`
+		}
 		if err := json.NewDecoder(res.Body).Decode(&run); err != nil {
 			t.Fatal(err)
 		}

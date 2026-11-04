@@ -11,7 +11,7 @@ func TestNormalizeCanonicalizesAndFingerprints(t *testing.T) {
 	posted := time.Date(2026, 11, 1, 12, 30, 0, 0, time.FixedZone("EST", -5*60*60))
 	now := time.Date(2026, 11, 3, 7, 0, 0, 0, time.UTC)
 	input := provider.SyncResult{
-		Accounts: []provider.Account{{ExternalID: "acct-1", Name: " Checking ", Type: "CHECKING", Currency: "usd", BalanceCents: 12500}},
+		Accounts:     []provider.Account{{ExternalID: "acct-1", Name: " Checking ", Type: "CHECKING", Currency: "usd", BalanceCents: 12500}},
 		Transactions: []provider.Transaction{{ExternalID: "txn-1", AccountExternalID: "acct-1", Description: " Coffee ", AmountCents: -525, Currency: "usd", PostedAt: posted}},
 	}
 	accounts, transactions := Normalize("conn-1", input, now)

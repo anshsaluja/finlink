@@ -103,7 +103,9 @@ func (s *server) getConnection(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) getAccounts(w http.ResponseWriter, r *http.Request) {
-	if !s.connectionExists(w, r) { return }
+	if !s.connectionExists(w, r) {
+		return
+	}
 	if s.data == nil {
 		writeError(w, http.StatusServiceUnavailable, "data_unavailable", "financial data read service is unavailable")
 		return
@@ -117,7 +119,9 @@ func (s *server) getAccounts(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) getTransactions(w http.ResponseWriter, r *http.Request) {
-	if !s.connectionExists(w, r) { return }
+	if !s.connectionExists(w, r) {
+		return
+	}
 	if s.data == nil {
 		writeError(w, http.StatusServiceUnavailable, "data_unavailable", "financial data read service is unavailable")
 		return

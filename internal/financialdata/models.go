@@ -17,12 +17,12 @@ type Account struct {
 // the primary deduplication identity within a connection; Fingerprint provides a stable
 // fallback for providers that do not supply transaction IDs.
 type Transaction struct {
-	ConnectionID             string    `json:"connection_id"`
-	ProviderExternalID       string    `json:"provider_external_id"`
-	AccountProviderExternalID string   `json:"account_provider_external_id"`
-	Description              string    `json:"description"`
-	AmountCents              int64     `json:"amount_cents"`
-	Currency                 string    `json:"currency"`
-	PostedAt                 time.Time `json:"posted_at"`
-	Fingerprint              string    `json:"fingerprint"`
+	ConnectionID              string    `json:"connection_id"`
+	ProviderExternalID        string    `json:"provider_external_id"`
+	AccountProviderExternalID string    `json:"account_provider_external_id"`
+	Description               string    `json:"description"`
+	AmountCents               int64     `json:"amount_cents"`
+	Currency                  string    `json:"currency"`
+	PostedAt                  time.Time `json:"posted_at"`
+	Fingerprint               string    `json:"fingerprint"`
 }
