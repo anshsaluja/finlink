@@ -23,23 +23,36 @@ type SpendingGroup struct {
  Count int `json:"count"`
 }
 
+// spendingIdentity uses separate fields so IDs cannot collide across providers,
+// accounts, identifier types, or delimiter-containing values.
+type spendingIdentity struct {
+ connectionID string
+ accountID string
+ kind string
+ value string
+}
+
 func SummarizeSpending(transactions []Transaction, month time.Time, currency string) SpendingSummary {
  month = month.UTC()
  currency = strings.ToUpper(strings.TrimSpace(currency))
  result := SpendingSummary{Month: month.Format("2006-01"), Currency: currency, Categories: []SpendingGroup{}, Merchants: []SpendingGroup{}}
  categories := map[string]*SpendingGroup{}
  merchants := map[string]*SpendingGroup{}
- seen := map[string]bool{}
+ seen := map[spendingIdentity]bool{}
  for _, tx := range transactions {
   if tx.PostedAt.UTC().Format("2006-01") != result.Month || strings.ToUpper(strings.TrimSpace(tx.Currency)) != currency || tx.AmountCents <= 0 { continue }
   description := strings.ToLower(strings.TrimSpace(tx.Description))
   if isTransfer(description) { continue }
   identity := strings.TrimSpace(tx.ProviderExternalID)
-  if identity == "" { identity = strings.TrimSpace(tx.Fingerprint) }
+  identityType := "provider"
+  if identity == "" {
+   identity = strings.TrimSpace(tx.Fingerprint)
+   identityType = "fingerprint"
+  }
   // Without a provider ID or fingerprint, distinct purchases may share the
   // same timestamp, amount, and merchant. Never infer duplicates from those fields.
   if identity != "" {
-   key := tx.ConnectionID + "|" + tx.AccountProviderExternalID + "|" + identity
+   key := spendingIdentity{tx.ConnectionID, tx.AccountProviderExternalID, identityType, identity}
    if seen[key] { continue }
    seen[key] = true
   }
