@@ -29,3 +29,19 @@ func TestSummarizeSpendingEmptyMonth(t *testing.T) {
  summary := SummarizeSpending(nil,time.Date(2026,2,1,0,0,0,0,time.UTC),"USD")
  if summary.TotalCents != 0 || len(summary.Categories) != 0 || len(summary.Merchants) != 0 { t.Fatalf("unexpected empty summary: %+v",summary) }
 }
+
+func TestSummarizeSpendingDistinctPurchasesWithoutProviderIDs(t *testing.T) {
+ day := time.Date(2026, 3, 5, 12, 0, 0, 0, time.UTC)
+ transactions := []Transaction{
+  {ConnectionID:"c1", AccountProviderExternalID:"a1", Description:"  STARBUCKS  ", AmountCents:500, Currency:"USD", PostedAt:day},
+  {ConnectionID:"c1", AccountProviderExternalID:"a1", Description:"starbucks", AmountCents:700, Currency:"USD", PostedAt:day},
+  {ConnectionID:"c1", AccountProviderExternalID:"a1", Description:"Starbucks", AmountCents:500, Currency:"USD", PostedAt:day},
+ }
+ summary := SummarizeSpending(transactions, day, "USD")
+ if summary.TotalCents != 1200 || summary.TransactionCount != 2 {
+  t.Fatalf("different amounts must not be deduplicated, but identical fallback identities should be: %+v", summary)
+ }
+ if len(summary.Merchants) != 1 || summary.Merchants[0].Name != "Starbucks" || summary.Merchants[0].Count != 2 {
+  t.Fatalf("merchant capitalization and whitespace must be normalized: %+v", summary.Merchants)
+ }
+}
