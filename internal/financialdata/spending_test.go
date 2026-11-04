@@ -58,3 +58,18 @@ func TestSummarizeSpendingDeduplicatesFingerprints(t *testing.T) {
   t.Fatalf("fingerprints should deduplicate only within their connection and account: %+v", summary)
  }
 }
+
+func TestSummarizeSpendingIdentityTypesAndDelimiters(t *testing.T) {
+ day := time.Date(2026, 3, 5, 12, 0, 0, 0, time.UTC)
+ transactions := []Transaction{
+  {ConnectionID:"bank", AccountProviderExternalID:"checking", ProviderExternalID:"same", Description:"Coffee", AmountCents:500, Currency:"USD", PostedAt:day},
+  {ConnectionID:"bank", AccountProviderExternalID:"checking", Fingerprint:"same", Description:"Coffee", AmountCents:600, Currency:"USD", PostedAt:day},
+  {ConnectionID:"bank|checking", AccountProviderExternalID:"a", ProviderExternalID:"same", Description:"Coffee", AmountCents:700, Currency:"USD", PostedAt:day},
+  {ConnectionID:"bank", AccountProviderExternalID:"checking|a", ProviderExternalID:"same", Description:"Coffee", AmountCents:800, Currency:"USD", PostedAt:day},
+  {ConnectionID:"bank", AccountProviderExternalID:"checking", ProviderExternalID:"same", Description:"Coffee", AmountCents:500, Currency:"USD", PostedAt:day},
+ }
+ summary := SummarizeSpending(transactions, day, "USD")
+ if summary.TotalCents != 2600 || summary.TransactionCount != 4 {
+  t.Fatalf("identity type and account boundaries must remain distinct: %+v", summary)
+ }
+}
