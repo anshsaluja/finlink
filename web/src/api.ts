@@ -16,7 +16,13 @@ export const api={
    const result:Transaction[]=[];const seen=new Set<string>();const pageSize=200;
    for(let offset=0;offset<=1_000_000;offset+=pageSize){
      const page=await request<{transactions:Transaction[]}>(`/v1/connections/${id}/transactions?limit=${pageSize}&offset=${offset}`);
-     const records=page.transactions||[];
+     const records=page.transactions;
+     if(!Array.isArray(records) || records.length>pageSize){
+       throw new Error('Invalid transaction page returned by the API; spending totals cannot be verified.');
+     }
+     if(records.some(record=>!record || typeof record.provider_external_id!=='string' || !record.provider_external_id || typeof record.amount_cents!=='number' || !Number.isSafeInteger(record.amount_cents) || typeof record.currency!=='string' || typeof record.description!=='string' || typeof record.posted_at!=='string')){
+       throw new Error('Malformed transaction record returned by the API; spending totals cannot be verified.');
+     }
      for(const record of records){
        const key=record.provider_external_id;
        if(key){if(seen.has(key))continue;seen.add(key);}
