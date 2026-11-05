@@ -14,7 +14,7 @@ const categoryOf = (description:string) => {
   if (/amazon|target|walmart|shopping|store/.test(d)) return 'Shopping';
   return 'Other';
 };
-const merchantOf=(description:string)=>description.trim().replace(/\\s+/g,' ').replace(/\\s+(?:#\\d+|\\d{4,})$/,'') || 'Unknown';
+const merchantOf=(description:string)=>description.trim().replace(/\s+/g,' ').replace(/\s+(?:#\d+|\d{4,})$/,'') || 'Unknown';
 function spending(transactions:Transaction[],month:string) {
   const seen=new Set<string>(); const categories=new Map<string,number>(); const merchants=new Map<string,{amount:number,count:number}>();
   let total=0; let count=0;
