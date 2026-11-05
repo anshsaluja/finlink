@@ -86,6 +86,15 @@ func (r *SQLRepository) AccountsByConnection(ctx context.Context, connectionID s
 // TransactionsByConnection returns the most recent canonical transactions with a bounded
 // limit so a dashboard request cannot accidentally scan an unbounded ledger.
 func (r *SQLRepository) TransactionsByConnection(ctx context.Context, connectionID string, limit int) ([]Transaction, error) {
+	return r.TransactionsByConnectionPage(ctx, connectionID, limit, 0)
+}
+
+// TransactionsByConnectionPage returns a bounded page in stable newest-first order.
+// Concurrent inserts can shift offsets; consumers should deduplicate by identity.
+func (r *SQLRepository) TransactionsByConnectionPage(ctx context.Context, connectionID string, limit, offset int) ([]Transaction, error) {
+	if offset < 0 {
+		return nil, fmt.Errorf("invalid transaction offset: %d", offset)
+	}
 	if limit <= 0 || limit > 200 {
 		limit = 100
 	}
@@ -93,7 +102,7 @@ func (r *SQLRepository) TransactionsByConnection(ctx context.Context, connection
 		SELECT t.connection_id, COALESCE(t.provider_external_id,''), a.provider_external_id,
 		       t.description, t.amount_cents, t.currency, t.posted_at, t.fingerprint
 		FROM transactions t JOIN accounts a ON a.id=t.account_id
-		WHERE t.connection_id=$1 ORDER BY t.posted_at DESC, t.id DESC LIMIT $2`, connectionID, limit)
+		WHERE t.connection_id=$1 ORDER BY t.posted_at DESC, t.id DESC LIMIT $2 OFFSET $3`, connectionID, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("list transactions: %w", err)
 	}
