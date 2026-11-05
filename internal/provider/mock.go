@@ -26,9 +26,9 @@ func (MockNorthstar) Sync(_ context.Context, externalID, cursor string) (SyncRes
 	}
 	postedAt := time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC)
 	return SyncResult{
-		Accounts: []Account{{ExternalID: externalID + "-checking", Name: "Everyday Checking", Type: "checking", Currency: "USD", BalanceCents: 245075}},
+		Accounts:     []Account{{ExternalID: externalID + "-checking", Name: "Everyday Checking", Type: "checking", Currency: "USD", BalanceCents: 245075}},
 		Transactions: []Transaction{{ExternalID: externalID + "-txn-1", AccountExternalID: externalID + "-checking", Description: "Corner Coffee", AmountCents: -575, Currency: "USD", PostedAt: postedAt}},
-		NextCursor: "northstar:1",
+		NextCursor:   "northstar:1",
 	}, nil
 }
 
@@ -52,8 +52,8 @@ func (MockHarbor) Sync(_ context.Context, externalID, cursor string) (SyncResult
 	}
 	postedAt := time.Date(2026, 10, 30, 18, 30, 0, 0, time.UTC)
 	return SyncResult{
-		Accounts: []Account{{ExternalID: "acct_" + externalID, Name: "Harbor Savings", Type: "savings", Currency: "USD", BalanceCents: 510000}},
+		Accounts:     []Account{{ExternalID: "acct_" + externalID, Name: "Harbor Savings", Type: "savings", Currency: "USD", BalanceCents: 510000}},
 		Transactions: []Transaction{{ExternalID: "entry_" + externalID + "_1", AccountExternalID: "acct_" + externalID, Description: "Payroll", AmountCents: 125000, Currency: "USD", PostedAt: postedAt}},
-		NextCursor: "harbor:1",
+		NextCursor:   "harbor:1",
 	}, nil
 }
