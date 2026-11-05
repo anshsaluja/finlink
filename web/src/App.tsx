@@ -50,7 +50,7 @@ export function App(){
     return()=>{active=false;clearInterval(timer)};
   },[run,connection]);
   async function connect(e:FormEvent){e.preventDefault();setBusy(true);setError('');try{
-    const credentials=provider==='northstar'?{username:'demo',password:'demo'}:{token:'demo'};
+    const credentials:Record<string,string>=provider==='northstar'?{username:'demo',password:'demo'}:{token:'demo'};
     const c=await api.connect(provider,credentials);setConnection(c);setAccounts([]);setTxns([]);setRun(null);setMonth('');
   }catch(e){setError((e as Error).message)}finally{setBusy(false)}}
   async function sync(){if(!connection)return;setBusy(true);setError('');try{setRun(await api.sync(connection.id))}catch(e){setError((e as Error).message)}finally{setBusy(false)}}
