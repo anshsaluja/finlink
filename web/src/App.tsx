@@ -38,6 +38,8 @@ export function App(){
   const [month,setMonth]=useState('');
   // A response from an earlier connection must never overwrite the active institution.
   const activeConnectionId=useRef<string|null>(null);
+  // Only the most recently requested connection may become active.
+  const connectRequestId=useRef(0);
   const months=useMemo(()=>[...new Set(txns.filter(t=>t.currency==='USD' && /^\d{4}-(0[1-9]|1[0-2])-\d{2}/.test(t.posted_at)).map(t=>monthOf(t.posted_at)))].sort().reverse(),[txns]);
   const selectedMonth=months.includes(month)?month:months[0]||'';
   const insights=useMemo(()=>spending(txns,selectedMonth),[txns,selectedMonth]);
@@ -53,10 +55,12 @@ export function App(){
     }catch(e){if(active && activeConnectionId.current===connection.id)setError((e as Error).message)}finally{polling=false}},1000);
     return()=>{active=false;clearInterval(timer)};
   },[run,connection]);
-  async function connect(e:FormEvent){e.preventDefault();setBusy(true);setError('');try{
+  async function connect(e:FormEvent){e.preventDefault();const requestId=++connectRequestId.current;setBusy(true);setError('');try{
     const credentials:Record<string,string>=provider==='northstar'?{username:'demo',password:'demo'}:{token:'demo'};
-    const c=await api.connect(provider,credentials);activeConnectionId.current=c.id;setLoading(false);setConnection(c);setAccounts([]);setTxns([]);setRun(null);setMonth('');
-  }catch(e){setError((e as Error).message)}finally{setBusy(false)}}
+    const c=await api.connect(provider,credentials);if(requestId!==connectRequestId.current)return;activeConnectionId.current=c.id;setLoading(false);setConnection(c);setAccounts([]);setTxns([]);setRun(null);setMonth('');
+    // Reconnecting to an existing mock institution should show persisted records immediately.
+    await refresh(c.id);
+  }catch(e){if(requestId===connectRequestId.current)setError((e as Error).message)}finally{if(requestId===connectRequestId.current)setBusy(false)}}
   async function sync(){if(!connection)return;const id=connection.id;setBusy(true);setError('');try{const next=await api.sync(id);if(activeConnectionId.current===id)setRun(next)}catch(e){if(activeConnectionId.current===id)setError((e as Error).message)}finally{setBusy(false)}}
   return <main><header><div><span className="eyebrow">FINANCIAL DATA CONNECTIVITY</span><h1>FinLink</h1><p>Connect a sandbox institution, synchronize transactions, and explore actual mock-bank records.</p></div><span className="badge">Sandbox · No live banks</span></header>
     <section className="panel connect"><div><h2>Institution connection</h2><p>Only synthetic demonstration credentials and data are used.</p></div><form onSubmit={connect}><label htmlFor="institution">Demo institution</label><select id="institution" value={provider} onChange={e=>setProvider(e.target.value)}><option value="northstar">Northstar Bank</option><option value="harbor">Harbor Credit Union</option></select><button type="submit" disabled={busy} aria-busy={busy}>{busy?'Connecting…':connection?'Connect another':'Connect institution'}</button></form></section>
