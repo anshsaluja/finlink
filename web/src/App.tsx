@@ -40,6 +40,8 @@ export function App(){
   const activeConnectionId=useRef<string|null>(null);
   // Only the most recently requested connection may become active.
   const connectRequestId=useRef(0);
+  // Later refreshes (for example, after a sync) must win over older requests for the same bank.
+  const refreshRequestId=useRef(0);
   const months=useMemo(()=>[...new Set(txns.filter(t=>t.currency==='USD' && /^\d{4}-(0[1-9]|1[0-2])-\d{2}/.test(t.posted_at)).map(t=>monthOf(t.posted_at)))].sort().reverse(),[txns]);
   const selectedMonth=months.includes(month)?month:months[0]||'';
   const insights=useMemo(()=>spending(txns,selectedMonth),[txns,selectedMonth]);
@@ -48,7 +50,7 @@ export function App(){
   const previousMonthKey=previousMonth?previousMonth.toISOString().slice(0,7):'';
   const hasPreviousHistory=months.includes(previousMonthKey);
   const previous=useMemo(()=>spending(txns,previousMonthKey),[txns,previousMonthKey]);
-  const refresh=async(id:string)=>{setLoading(true);try{const [c,a,t]=await Promise.all([api.connection(id),api.accounts(id),api.transactions(id)]);if(activeConnectionId.current!==id)return;setConnection(c);setAccounts(a.accounts||[]);setTxns(t.transactions||[])}finally{if(activeConnectionId.current===id)setLoading(false)}};
+  const refresh=async(id:string)=>{const requestId=++refreshRequestId.current;setLoading(true);try{const [c,a,t]=await Promise.all([api.connection(id),api.accounts(id),api.transactions(id)]);if(activeConnectionId.current!==id || refreshRequestId.current!==requestId)return;setConnection(c);setAccounts(a.accounts||[]);setTxns(t.transactions||[])}finally{if(activeConnectionId.current===id && refreshRequestId.current===requestId)setLoading(false)}};
   useEffect(()=>{if(!run||!connection||!['requested','processing'].includes(run.status))return;
     let active=true;let polling=false;const timer=setInterval(async()=>{if(polling)return;polling=true;try{const next=await api.syncRun(run.id);if(!active || activeConnectionId.current!==connection.id)return;setRun(next);
       if(next.status==='succeeded'){clearInterval(timer);await refresh(connection.id)}
@@ -57,7 +59,7 @@ export function App(){
   },[run,connection]);
   async function connect(e:FormEvent){e.preventDefault();const requestId=++connectRequestId.current;setBusy(true);setError('');try{
     const credentials:Record<string,string>=provider==='northstar'?{username:'demo',password:'demo'}:{token:'demo'};
-    const c=await api.connect(provider,credentials);if(requestId!==connectRequestId.current)return;activeConnectionId.current=c.id;setLoading(false);setConnection(c);setAccounts([]);setTxns([]);setRun(null);setMonth('');
+    const c=await api.connect(provider,credentials);if(requestId!==connectRequestId.current)return;activeConnectionId.current=c.id;++refreshRequestId.current;setLoading(false);setConnection(c);setAccounts([]);setTxns([]);setRun(null);setMonth('');
     // Reconnecting to an existing mock institution should show persisted records immediately.
     await refresh(c.id);
   }catch(e){if(requestId===connectRequestId.current)setError((e as Error).message)}finally{if(requestId===connectRequestId.current)setBusy(false)}}
