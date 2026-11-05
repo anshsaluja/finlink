@@ -41,12 +41,14 @@ export function App(){
   const insights=useMemo(()=>spending(txns,selectedMonth),[txns,selectedMonth]);
   const previousMonth=selectedMonth?new Date(selectedMonth+'-01T00:00:00Z'):null;
   if(previousMonth)previousMonth.setUTCMonth(previousMonth.getUTCMonth()-1);
-  const previous=useMemo(()=>spending(txns,previousMonth?previousMonth.toISOString().slice(0,7):''),[txns,selectedMonth]);
+  const previousMonthKey=previousMonth?previousMonth.toISOString().slice(0,7):'';
+  const hasPreviousHistory=months.includes(previousMonthKey);
+  const previous=useMemo(()=>spending(txns,previousMonthKey),[txns,previousMonthKey]);
   const refresh=async(id:string)=>{setLoading(true);try{const [c,a,t]=await Promise.all([api.connection(id),api.accounts(id),api.transactions(id)]);setConnection(c);setAccounts(a.accounts||[]);setTxns(t.transactions||[])}finally{setLoading(false)}};
   useEffect(()=>{if(!run||!connection||!['requested','processing'].includes(run.status))return;
-    let active=true;const timer=setInterval(async()=>{try{const next=await api.syncRun(run.id);if(!active)return;setRun(next);
+    let active=true;let polling=false;const timer=setInterval(async()=>{if(polling)return;polling=true;try{const next=await api.syncRun(run.id);if(!active)return;setRun(next);
       if(next.status==='succeeded'){clearInterval(timer);await refresh(connection.id)}
-    }catch(e){if(active)setError((e as Error).message)}},1000);
+    }catch(e){if(active)setError((e as Error).message)}finally{polling=false}},1000);
     return()=>{active=false;clearInterval(timer)};
   },[run,connection]);
   async function connect(e:FormEvent){e.preventDefault();setBusy(true);setError('');try{
@@ -65,7 +67,7 @@ export function App(){
       <section className="panel" aria-labelledby="spending-heading"><h2 id="spending-heading">Spending insights</h2><p>Calculated from synchronized USD transactions. Transfers and labeled refunds are excluded; credits are not counted as spending.</p>
       {months.length===0?<p className="empty">No transaction history available yet. Run a sync to explore spending.</p>:<>
       <label htmlFor="spending-month">Month</label> <select id="spending-month" value={selectedMonth} onChange={e=>setMonth(e.target.value)}>{months.map(m=><option key={m} value={m}>{m}</option>)}</select>
-      <div className="status"><div><span>Total spent</span><strong>{money(insights.total)}</strong></div><div><span>Purchases</span><strong>{insights.count}</strong></div><div><span>Previous month</span><strong>{money(previous.total)}</strong></div><div><span>Change</span><strong>{previous.total?((insights.total-previous.total)/previous.total*100).toFixed(1)+'%':'Not enough history'}</strong></div></div>
+      <div className="status"><div><span>Total spent</span><strong>{money(insights.total)}</strong></div><div><span>Purchases</span><strong>{insights.count}</strong></div><div><span>Previous month</span><strong>{hasPreviousHistory?money(previous.total):'No data'}</strong></div><div><span>Change</span><strong>{hasPreviousHistory&&previous.total?((insights.total-previous.total)/previous.total*100).toFixed(1)+'%':'Not enough history'}</strong></div></div>
       {insights.count===0?<p className="empty">No qualifying purchases in this month.</p>:<div className="grid"><div><h3>By category</h3>{insights.categories.map(([name,amount])=><div key={name} className="account"><span>{name}</span><strong>{money(amount)}</strong><progress aria-label={name+' share of spending'} value={amount} max={insights.total}/></div>)}</div><div><h3>Top merchants</h3>{insights.merchants.slice(0,5).map(([name,v])=><div className="account" key={name}><span>{name} · {v.count} payment{v.count===1?'':'s'}</span><strong>{money(v.amount)}</strong></div>)}</div></div>}
       </>}</section></>}
     <footer>Provider-independent data · Durable Kafka sync · Idempotent persistence · Mock institutions only</footer></main>;
