@@ -46,7 +46,7 @@ export function App(){
   const previousMonthKey=previousMonth?previousMonth.toISOString().slice(0,7):'';
   const hasPreviousHistory=months.includes(previousMonthKey);
   const previous=useMemo(()=>spending(txns,previousMonthKey),[txns,previousMonthKey]);
-  const refresh=async(id:string)=>{setLoading(true);try{const [c,a,t]=await Promise.all([api.connection(id),api.accounts(id),api.allTransactions(id)]);if(activeConnectionId.current!==id)return;setConnection(c);setAccounts(a.accounts||[]);setTxns(t)}finally{if(activeConnectionId.current===id)setLoading(false)}};
+  const refresh=async(id:string)=>{setLoading(true);setError('');try{const [c,a,t]=await Promise.all([api.connection(id),api.accounts(id),api.allTransactions(id)]);if(activeConnectionId.current!==id)return;setConnection(c);setAccounts(a.accounts||[]);setTxns(t)}catch(e){if(activeConnectionId.current===id){setTxns([]);setError(`Unable to load complete transaction history: ${(e as Error).message}`)}}finally{if(activeConnectionId.current===id)setLoading(false)}};
   useEffect(()=>{if(!run||!connection||!['requested','processing'].includes(run.status))return;
     let active=true;let polling=false;const timer=setInterval(async()=>{if(polling)return;polling=true;try{const next=await api.syncRun(run.id);if(!active || activeConnectionId.current!==connection.id)return;setRun(next);
       if(next.status==='succeeded'){clearInterval(timer);await refresh(connection.id)}
@@ -55,7 +55,7 @@ export function App(){
   },[run,connection]);
   async function connect(e:FormEvent){e.preventDefault();setBusy(true);setError('');try{
     const credentials:Record<string,string>=provider==='northstar'?{username:'demo',password:'demo'}:{token:'demo'};
-    const c=await api.connect(provider,credentials);activeConnectionId.current=c.id;setLoading(false);setConnection(c);setAccounts([]);setTxns([]);setRun(null);setMonth('');
+    const c=await api.connect(provider,credentials);activeConnectionId.current=c.id;setLoading(false);setConnection(c);setAccounts([]);setTxns([]);setRun(null);setMonth('');await refresh(c.id);
   }catch(e){setError((e as Error).message)}finally{setBusy(false)}}
   async function sync(){if(!connection)return;const id=connection.id;setBusy(true);setError('');try{const next=await api.sync(id);if(activeConnectionId.current===id)setRun(next)}catch(e){if(activeConnectionId.current===id)setError((e as Error).message)}finally{setBusy(false)}}
   return <main><header><div><span className="eyebrow">FINANCIAL DATA CONNECTIVITY</span><h1>FinLink</h1><p>Connect a sandbox institution, synchronize transactions, and explore actual mock-bank records.</p></div><span className="badge">Sandbox · No live banks</span></header>
