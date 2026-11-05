@@ -15,7 +15,7 @@ export const api={
  async allTransactions(id:string):Promise<Transaction[]>{
    const result:Transaction[]=[];const seen=new Set<string>();const pageSize=200;
    for(let offset=0;offset<=1_000_000;offset+=pageSize){
-     const page=await api.transactions(id,offset,pageSize);
+     const page=await request<{transactions:Transaction[]}>(`/v1/connections/${id}/transactions?limit=${pageSize}&offset=${offset}`);
      const records=page.transactions||[];
      for(const record of records){
        const key=record.provider_external_id;
