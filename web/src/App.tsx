@@ -50,14 +50,14 @@ export function App(){
   useEffect(()=>{if(!run||!connection||!['requested','processing'].includes(run.status))return;
     let active=true;let polling=false;const timer=setInterval(async()=>{if(polling)return;polling=true;try{const next=await api.syncRun(run.id);if(!active)return;setRun(next);
       if(next.status==='succeeded'){clearInterval(timer);await refresh(connection.id)}
-    }catch(e){if(active)setError((e as Error).message)}finally{polling=false}},1000);
+    }catch(e){if(active && activeConnectionId.current===connection.id)setError((e as Error).message)}finally{polling=false}},1000);
     return()=>{active=false;clearInterval(timer)};
   },[run,connection]);
   async function connect(e:FormEvent){e.preventDefault();setBusy(true);setError('');try{
     const credentials:Record<string,string>=provider==='northstar'?{username:'demo',password:'demo'}:{token:'demo'};
     const c=await api.connect(provider,credentials);activeConnectionId.current=c.id;setLoading(false);setConnection(c);setAccounts([]);setTxns([]);setRun(null);setMonth('');
   }catch(e){setError((e as Error).message)}finally{setBusy(false)}}
-  async function sync(){if(!connection)return;setBusy(true);setError('');try{setRun(await api.sync(connection.id))}catch(e){setError((e as Error).message)}finally{setBusy(false)}}
+  async function sync(){if(!connection)return;const id=connection.id;setBusy(true);setError('');try{const next=await api.sync(id);if(activeConnectionId.current===id)setRun(next)}catch(e){if(activeConnectionId.current===id)setError((e as Error).message)}finally{setBusy(false)}}
   return <main><header><div><span className="eyebrow">FINANCIAL DATA CONNECTIVITY</span><h1>FinLink</h1><p>Connect a sandbox institution, synchronize transactions, and explore actual mock-bank records.</p></div><span className="badge">Sandbox · No live banks</span></header>
     <section className="panel connect"><div><h2>Institution connection</h2><p>Only synthetic demonstration credentials and data are used.</p></div><form onSubmit={connect}><label htmlFor="institution">Demo institution</label><select id="institution" value={provider} onChange={e=>setProvider(e.target.value)}><option value="northstar">Northstar Bank</option><option value="harbor">Harbor Credit Union</option></select><button type="submit" disabled={busy} aria-busy={busy}>{busy?'Connecting…':connection?'Connect another':'Connect institution'}</button></form></section>
     {error&&<div className="error" role="alert">{error}</div>}
