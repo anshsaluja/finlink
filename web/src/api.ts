@@ -10,5 +10,20 @@ export const api={
  sync:(id:string)=>request<SyncRun>(`/v1/connections/${id}/sync`,{method:'POST',headers:{'Idempotency-Key':crypto.randomUUID()}}),
  syncRun:(id:number)=>request<SyncRun>(`/v1/sync-runs/${id}`),
  accounts:(id:string)=>request<{accounts:Account[]}>(`/v1/connections/${id}/accounts`),
- transactions:(id:string)=>request<{transactions:Transaction[]}>(`/v1/connections/${id}/transactions?limit=100`)
+ transactions:(id:string,offset=0,limit=200)=>request<{transactions:Transaction[];limit:number;offset:number;has_more?:boolean}>(`/v1/connections/${id}/transactions?limit=${limit}&offset=${offset}`),
+ // A full page is only a continuation hint; load every page before calculating totals.
+ async allTransactions(id:string):Promise<Transaction[]>{
+   const result:Transaction[]=[];const seen=new Set<string>();const pageSize=200;
+   for(let offset=0;offset<=1_000_000;offset+=pageSize){
+     const page=await api.transactions(id,offset,pageSize);
+     const records=page.transactions||[];
+     for(const record of records){
+       const key=record.provider_external_id;
+       if(key){if(seen.has(key))continue;seen.add(key);}
+       result.push(record);
+     }
+     if(records.length<pageSize)return result;
+   }
+   throw new Error('Transaction history exceeds the supported pagination window; spending totals cannot be verified.');
+ }
 };
