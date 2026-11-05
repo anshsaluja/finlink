@@ -48,7 +48,7 @@ export function App(){
   const previous=useMemo(()=>spending(txns,previousMonthKey),[txns,previousMonthKey]);
   const refresh=async(id:string)=>{setLoading(true);try{const [c,a,t]=await Promise.all([api.connection(id),api.accounts(id),api.transactions(id)]);if(activeConnectionId.current!==id)return;setConnection(c);setAccounts(a.accounts||[]);setTxns(t.transactions||[])}finally{if(activeConnectionId.current===id)setLoading(false)}};
   useEffect(()=>{if(!run||!connection||!['requested','processing'].includes(run.status))return;
-    let active=true;let polling=false;const timer=setInterval(async()=>{if(polling)return;polling=true;try{const next=await api.syncRun(run.id);if(!active)return;setRun(next);
+    let active=true;let polling=false;const timer=setInterval(async()=>{if(polling)return;polling=true;try{const next=await api.syncRun(run.id);if(!active || activeConnectionId.current!==connection.id)return;setRun(next);
       if(next.status==='succeeded'){clearInterval(timer);await refresh(connection.id)}
     }catch(e){if(active && activeConnectionId.current===connection.id)setError((e as Error).message)}finally{polling=false}},1000);
     return()=>{active=false;clearInterval(timer)};
