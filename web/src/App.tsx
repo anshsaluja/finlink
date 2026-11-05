@@ -38,6 +38,12 @@ export function App(){
   const [month,setMonth]=useState('');
   // A response from an earlier connection must never overwrite the active institution.
   const activeConnectionId=useRef<string|null>(null);
+  // Only the most recently requested connection may become active.
+  const connectRequestId=useRef(0);
+  // Later refreshes (for example, after a sync) must win over older requests for the same bank.
+  const refreshRequestId=useRef(0);
+  // Serialize UI mutation feedback across reconnect and sync requests.
+  const mutationRequestId=useRef(0);
   const months=useMemo(()=>[...new Set(txns.filter(t=>t.currency==='USD' && /^\d{4}-(0[1-9]|1[0-2])-\d{2}/.test(t.posted_at)).map(t=>monthOf(t.posted_at)))].sort().reverse(),[txns]);
   const selectedMonth=months.includes(month)?month:months[0]||'';
   const insights=useMemo(()=>spending(txns,selectedMonth),[txns,selectedMonth]);
@@ -46,18 +52,20 @@ export function App(){
   const previousMonthKey=previousMonth?previousMonth.toISOString().slice(0,7):'';
   const hasPreviousHistory=months.includes(previousMonthKey);
   const previous=useMemo(()=>spending(txns,previousMonthKey),[txns,previousMonthKey]);
-  const refresh=async(id:string)=>{setLoading(true);try{const [c,a,t]=await Promise.all([api.connection(id),api.accounts(id),api.transactions(id)]);if(activeConnectionId.current!==id)return;setConnection(c);setAccounts(a.accounts||[]);setTxns(t.transactions||[])}finally{if(activeConnectionId.current===id)setLoading(false)}};
+  const refresh=async(id:string)=>{const requestId=++refreshRequestId.current;setLoading(true);try{const [c,a,t]=await Promise.all([api.connection(id),api.accounts(id),api.transactions(id)]);if(activeConnectionId.current!==id || refreshRequestId.current!==requestId)return;setConnection(c);setAccounts(a.accounts||[]);setTxns(t.transactions||[])}finally{if(activeConnectionId.current===id && refreshRequestId.current===requestId)setLoading(false)}};
   useEffect(()=>{if(!run||!connection||!['requested','processing'].includes(run.status))return;
     let active=true;let polling=false;const timer=setInterval(async()=>{if(polling)return;polling=true;try{const next=await api.syncRun(run.id);if(!active || activeConnectionId.current!==connection.id)return;setRun(next);
       if(next.status==='succeeded'){clearInterval(timer);await refresh(connection.id)}
     }catch(e){if(active && activeConnectionId.current===connection.id)setError((e as Error).message)}finally{polling=false}},1000);
     return()=>{active=false;clearInterval(timer)};
   },[run,connection]);
-  async function connect(e:FormEvent){e.preventDefault();setBusy(true);setError('');try{
+  async function connect(e:FormEvent){e.preventDefault();const requestId=++connectRequestId.current;const mutationId=++mutationRequestId.current;setBusy(true);setError('');try{
     const credentials:Record<string,string>=provider==='northstar'?{username:'demo',password:'demo'}:{token:'demo'};
-    const c=await api.connect(provider,credentials);activeConnectionId.current=c.id;setLoading(false);setConnection(c);setAccounts([]);setTxns([]);setRun(null);setMonth('');
-  }catch(e){setError((e as Error).message)}finally{setBusy(false)}}
-  async function sync(){if(!connection)return;const id=connection.id;setBusy(true);setError('');try{const next=await api.sync(id);if(activeConnectionId.current===id)setRun(next)}catch(e){if(activeConnectionId.current===id)setError((e as Error).message)}finally{setBusy(false)}}
+    const c=await api.connect(provider,credentials);if(requestId!==connectRequestId.current)return;activeConnectionId.current=c.id;++refreshRequestId.current;setLoading(false);setConnection(c);setAccounts([]);setTxns([]);setRun(null);setMonth('');
+    // Reconnecting to an existing mock institution should show persisted records immediately.
+    await refresh(c.id);
+  }catch(e){if(requestId===connectRequestId.current)setError((e as Error).message)}finally{if(requestId===connectRequestId.current && mutationId===mutationRequestId.current)setBusy(false)}}
+  async function sync(){if(!connection || busy)return;const id=connection.id;const mutationId=++mutationRequestId.current;setBusy(true);setError('');try{const next=await api.sync(id);if(activeConnectionId.current===id && mutationRequestId.current===mutationId)setRun(next)}catch(e){if(activeConnectionId.current===id && mutationRequestId.current===mutationId)setError((e as Error).message)}finally{if(mutationRequestId.current===mutationId)setBusy(false)}}
   return <main><header><div><span className="eyebrow">FINANCIAL DATA CONNECTIVITY</span><h1>FinLink</h1><p>Connect a sandbox institution, synchronize transactions, and explore actual mock-bank records.</p></div><span className="badge">Sandbox · No live banks</span></header>
     <section className="panel connect"><div><h2>Institution connection</h2><p>Only synthetic demonstration credentials and data are used.</p></div><form onSubmit={connect}><label htmlFor="institution">Demo institution</label><select id="institution" value={provider} onChange={e=>setProvider(e.target.value)}><option value="northstar">Northstar Bank</option><option value="harbor">Harbor Credit Union</option></select><button type="submit" disabled={busy} aria-busy={busy}>{busy?'Connecting…':connection?'Connect another':'Connect institution'}</button></form></section>
     {error&&<div className="error" role="alert">{error}</div>}
@@ -66,7 +74,7 @@ export function App(){
       {loading&&<p role="status">Loading synchronized records…</p>}
       <div className="grid" aria-busy={loading}><section className="panel"><h2>Accounts</h2>{accounts.length===0?<p className="empty">{loading?'Loading accounts…':'Sync to load account balances.'}</p>:accounts.map(a=><article className="account" key={a.provider_external_id}><div><strong>{a.name}</strong><span>{a.type}</span></div><b>{money(a.balance_cents,a.currency)}</b></article>)}</section>
       <section className="panel"><h2>Recent transactions</h2>{txns.length===0?<p className="empty">{loading?'Loading transactions…':'Sync to load transactions.'}</p>:<div className="transactions">{txns.map((t,i)=><article key={t.provider_external_id||i}><div><strong>{t.description}</strong><span>{new Date(t.posted_at).toLocaleDateString()}</span></div><b className={t.amount_cents<0?'debit':'credit'}>{money(t.amount_cents,t.currency)}</b></article>)}</div>}</section></div>
-      <section className="panel" aria-labelledby="spending-heading"><h2 id="spending-heading">Spending insights</h2><p>Calculated from synchronized USD transactions. Transfers and labeled refunds are excluded; credits are not counted as spending.</p>
+      <section className="panel" aria-labelledby="spending-heading"><h2 id="spending-heading">Spending insights</h2><p>Calculated from synchronized USD transactions. Transfers and labeled refunds are excluded; credits are not counted as spending.</p>{txns.length>=100&&<p className="error" role="status">Showing insights for the first 100 returned transactions only. Older transactions may be missing until pagination is supported; totals are not complete account history.</p>}
       {months.length===0?<p className="empty">No transaction history available yet. Run a sync to explore spending.</p>:<>
       <label htmlFor="spending-month">Month</label> <select id="spending-month" value={selectedMonth} onChange={e=>setMonth(e.target.value)}>{months.map(m=><option key={m} value={m}>{m}</option>)}</select>
       <div className="status"><div><span>Total spent</span><strong>{money(insights.total)}</strong></div><div><span>Purchases</span><strong>{insights.count}</strong></div><div><span>Previous month</span><strong>{hasPreviousHistory?money(previous.total):'No data'}</strong></div><div><span>Change</span><strong>{hasPreviousHistory&&previous.total?((insights.total-previous.total)/previous.total*100).toFixed(1)+'%':'Not enough history'}</strong></div></div>
