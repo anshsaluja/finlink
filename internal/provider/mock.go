@@ -29,10 +29,10 @@ func (MockNorthstar) Sync(_ context.Context, externalID, cursor string) (SyncRes
 	// syncs safe to replay and let analytics demonstrate trends and recurring bills.
 	entries := []struct {
 		id, description string
-		amount int64
-		year int
-		month time.Month
-		day int
+		amount          int64
+		year            int
+		month           time.Month
+		day             int
 	}{
 		{"txn-1", "Corner Coffee", -575, 2026, time.October, 31},
 		{"txn-2", "Fresh Market Groceries", -6842, 2026, time.October, 28},
@@ -58,18 +58,18 @@ func (MockNorthstar) Sync(_ context.Context, externalID, cursor string) (SyncRes
 	transactions := make([]Transaction, 0, len(entries))
 	for _, entry := range entries {
 		transactions = append(transactions, Transaction{
-			ExternalID: externalID + "-" + entry.id,
+			ExternalID:        externalID + "-" + entry.id,
 			AccountExternalID: accountID,
-			Description: entry.description,
-			AmountCents: entry.amount,
-			Currency: "USD",
-			PostedAt: time.Date(entry.year, entry.month, entry.day, 12, 0, 0, 0, time.UTC),
+			Description:       entry.description,
+			AmountCents:       entry.amount,
+			Currency:          "USD",
+			PostedAt:          time.Date(entry.year, entry.month, entry.day, 12, 0, 0, 0, time.UTC),
 		})
 	}
 	return SyncResult{
-		Accounts: []Account{{ExternalID: accountID, Name: "Everyday Checking", Type: "checking", Currency: "USD", BalanceCents: 245075}},
+		Accounts:     []Account{{ExternalID: accountID, Name: "Everyday Checking", Type: "checking", Currency: "USD", BalanceCents: 245075}},
 		Transactions: transactions,
-		NextCursor: "northstar:1",
+		NextCursor:   "northstar:1",
 	}, nil
 }
 
