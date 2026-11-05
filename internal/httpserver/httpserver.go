@@ -160,7 +160,7 @@ func (s *server) getTransactions(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "read_failed", "transactions could not be read")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"transactions": transactions, "limit": limit, "offset": offset, "has_more": len(transactions) == limit})
+	writeJSON(w, http.StatusOK, map[string]any{"transactions": transactions, "limit": limit, "offset": offset, "may_have_more": len(transactions) == limit})
 }
 
 func (s *server) connectionExists(w http.ResponseWriter, r *http.Request) bool {
