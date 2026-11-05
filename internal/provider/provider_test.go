@@ -26,7 +26,7 @@ func TestMockProviderIncrementalCursorReturnsNoDuplicatePage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(result.Transactions) != 1 || result.NextCursor == "" {
+	if len(result.Transactions) != 20 || result.NextCursor == "" {
 		t.Fatalf("unexpected first page: %+v", result)
 	}
 	next, err := (MockNorthstar{}).Sync(context.Background(), "ns-demo", result.NextCursor)
