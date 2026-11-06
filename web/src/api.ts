@@ -17,18 +17,20 @@ export function isValidTransactionTimestamp(value:string):boolean {
 }
 export type SyncRun={id:number;status:string;account_count:number;transaction_count:number;error_message?:string};
 async function request<T>(path:string,init?:RequestInit):Promise<T>{const r=await fetch(`${BASE}${path}`,{...init,headers:{'Content-Type':'application/json',...(init?.headers||{})}});if(!r.ok){const e=await r.json().catch(()=>({message:r.statusText}));throw new Error(e.message||`Request failed (${r.status})`)}return r.json()}
+// Connection identifiers are untrusted URL path segments, never route fragments.
+const connectionPath=(id:string)=>`/v1/connections/${encodeURIComponent(id)}`;
 export const api={
  connect:(provider:string,credentials:Record<string,string>)=>request<Connection>('/v1/connections',{method:'POST',body:JSON.stringify({provider,credentials})}),
- connection:(id:string)=>request<Connection>(`/v1/connections/${id}`),
- sync:(id:string)=>request<SyncRun>(`/v1/connections/${id}/sync`,{method:'POST',headers:{'Idempotency-Key':crypto.randomUUID()}}),
+ connection:(id:string)=>request<Connection>(connectionPath(id)),
+ sync:(id:string)=>request<SyncRun>(`${connectionPath(id)}/sync`,{method:'POST',headers:{'Idempotency-Key':crypto.randomUUID()}}),
  syncRun:(id:number)=>request<SyncRun>(`/v1/sync-runs/${id}`),
- accounts:(id:string)=>request<{accounts:Account[]}>(`/v1/connections/${id}/accounts`),
- transactions:(id:string,offset=0,limit=200)=>request<{transactions:Transaction[];limit:number;offset:number;has_more?:boolean}>(`/v1/connections/${id}/transactions?limit=${limit}&offset=${offset}`),
+ accounts:(id:string)=>request<{accounts:Account[]}>(`${connectionPath(id)}/accounts`),
+ transactions:(id:string,offset=0,limit=200)=>request<{transactions:Transaction[];limit:number;offset:number;has_more?:boolean}>(`${connectionPath(id)}/transactions?limit=${limit}&offset=${offset}`),
  // A full page is only a continuation hint; load every page before calculating totals.
  async allTransactions(id:string):Promise<Transaction[]>{
    const result:Transaction[]=[];const seen=new Set<string>();const pageSize=200;
    for(let offset=0;offset<=1_000_000;offset+=pageSize){
-     const page=await request<{transactions:Transaction[];limit:number;offset:number}>(`/v1/connections/${id}/transactions?limit=${pageSize}&offset=${offset}`);
+     const page=await request<{transactions:Transaction[];limit:number;offset:number}>(`${connectionPath(id)}/transactions?limit=${pageSize}&offset=${offset}`);
      if(page.limit!==pageSize || page.offset!==offset){
        throw new Error('Transaction page metadata does not match the requested window; spending totals cannot be verified.');
      }
@@ -51,7 +53,7 @@ export const api={
        // Offset pages can shift if a sync inserts new rows during retrieval.
        // Recheck the newest page before trusting the resulting analytics.
        if(offset>0){
-         const head=await request<{transactions:Transaction[];limit:number;offset:number}>(`/v1/connections/${id}/transactions?limit=${pageSize}&offset=0`);
+         const head=await request<{transactions:Transaction[];limit:number;offset:number}>(`${connectionPath(id)}/transactions?limit=${pageSize}&offset=0`);
          if(head.limit!==pageSize || head.offset!==0 || !Array.isArray(head.transactions) || head.transactions.length!==pageSize){
            throw new Error('Transaction history changed during retrieval; retry to verify spending totals.');
          }
