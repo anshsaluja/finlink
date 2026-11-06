@@ -28,6 +28,7 @@ jobs:
             echo "The following Go files need gofmt:"
             echo "$unformatted"
             exit 1
+          fi
 
   backend-test:
     name: Go tests and vet
