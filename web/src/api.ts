@@ -2,6 +2,19 @@ const BASE = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080').repl
 export type Connection={id:string;provider:string;institution:string;status:string;created_at:string;last_synced_at?:string;cursor?:string};
 export type Account={provider_external_id:string;name:string;type:string;currency:string;balance_cents:number};
 export type Transaction={provider_external_id:string;description:string;amount_cents:number;currency:string;posted_at:string};
+// Reject calendar rollovers and invalid timezone offsets that Date.parse may normalize.
+export function isValidTransactionTimestamp(value:string):boolean {
+ const match=/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(Z|([+-])(\d{2}):(\d{2}))$/.exec(value);
+ if(!match) return false;
+ const [,year,month,day,hour,minute,second,_zone,_sign,offsetHour,offsetMinute]=match;
+ const y=Number(year),m=Number(month),d=Number(day),h=Number(hour),min=Number(minute),sec=Number(second);
+ if(y<1 || m<1 || m>12 || d<1 || h>23 || min>59 || sec>59) return false;
+ // Date.UTC treats years 0-99 as 1900-1999, so calculate leap years explicitly.
+ const leap=y%4===0 && (y%100!==0 || y%400===0);
+ const maxDay=m===2?(leap?29:28):([4,6,9,11].includes(m)?30:31);
+ if(d>maxDay || (offsetHour!==undefined && (Number(offsetHour)>23 || Number(offsetMinute)>59))) return false;
+ return Number.isFinite(Date.parse(value));
+}
 export type SyncRun={id:number;status:string;account_count:number;transaction_count:number;error_message?:string};
 async function request<T>(path:string,init?:RequestInit):Promise<T>{const r=await fetch(`${BASE}${path}`,{...init,headers:{'Content-Type':'application/json',...(init?.headers||{})}});if(!r.ok){const e=await r.json().catch(()=>({message:r.statusText}));throw new Error(e.message||`Request failed (${r.status})`)}return r.json()}
 export const api={
@@ -23,7 +36,7 @@ export const api={
      if(!Array.isArray(records) || records.length>pageSize){
        throw new Error('Invalid transaction page returned by the API; spending totals cannot be verified.');
      }
-     if(records.some(record=>!record || typeof record.provider_external_id!=='string' || !record.provider_external_id || typeof record.amount_cents!=='number' || !Number.isSafeInteger(record.amount_cents) || typeof record.currency!=='string' || typeof record.description!=='string' || typeof record.posted_at!=='string')){
+     if(records.some(record=>!record || typeof record.provider_external_id!=='string' || !record.provider_external_id || typeof record.amount_cents!=='number' || !Number.isSafeInteger(record.amount_cents) || typeof record.currency!=='string' || typeof record.description!=='string' || typeof record.posted_at!=='string' || !isValidTransactionTimestamp(record.posted_at))){
        throw new Error('Malformed transaction record returned by the API; spending totals cannot be verified.');
      }
      for(const record of records){
