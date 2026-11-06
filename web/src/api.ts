@@ -4,9 +4,9 @@ export type Account={provider_external_id:string;name:string;type:string;currenc
 export type Transaction={provider_external_id:string;description:string;amount_cents:number;currency:string;posted_at:string};
 // Reject calendar rollovers and invalid timezone offsets that Date.parse may normalize.
 export function isValidTransactionTimestamp(value:string):boolean {
- const match=/^(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2}):(\\d{2}):(\\d{2})(?:\\.\\d+)?(Z|([+-])(\\d{2}):(\\d{2}))$/.exec(value);
+ const match=/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(Z|([+-])(\d{2}):(\d{2}))$/.exec(value);
  if(!match) return false;
- const [,year,month,day,hour,minute,second,, ,offsetHour,offsetMinute]=match;
+ const [,year,month,day,hour,minute,second,_zone,_sign,offsetHour,offsetMinute]=match;
  const y=Number(year),m=Number(month),d=Number(day),h=Number(hour),min=Number(minute),sec=Number(second);
  if(y<1 || m<1 || m>12 || d<1 || h>23 || min>59 || sec>59) return false;
  // Date.UTC treats years 0-99 as 1900-1999, so calculate leap years explicitly.
