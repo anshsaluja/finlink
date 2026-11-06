@@ -31,7 +31,21 @@ export const api={
        if(key){if(seen.has(key))continue;seen.add(key);}
        result.push(record);
      }
-     if(records.length<pageSize)return result;
+     if(records.length<pageSize){
+       // Offset pages can shift if a sync inserts new rows during retrieval.
+       // Recheck the newest page before trusting the resulting analytics.
+       if(offset>0){
+         const head=await request<{transactions:Transaction[];limit:number;offset:number}>(`/v1/connections/${id}/transactions?limit=${pageSize}&offset=0`);
+         if(head.limit!==pageSize || head.offset!==0 || !Array.isArray(head.transactions) || head.transactions.length!==pageSize){
+           throw new Error('Transaction history changed during retrieval; retry to verify spending totals.');
+         }
+         const firstIds=result.slice(0,pageSize).map(t=>t.provider_external_id);
+         if(head.transactions.some((t,i)=>!t || t.provider_external_id!==firstIds[i])){
+           throw new Error('Transaction history changed during retrieval; retry to verify spending totals.');
+         }
+       }
+       return result;
+     }
    }
    throw new Error('Transaction history exceeds the supported pagination window; spending totals cannot be verified.');
  }
