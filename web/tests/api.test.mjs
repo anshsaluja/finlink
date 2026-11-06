@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
-const { transpileModule, ModuleKind, ScriptTarget } = ts;
+const compiler = ts.default ?? ts;
+const { transpileModule, ModuleKind, ScriptTarget } = compiler;
 
 // Compile the actual API module, not a duplicate of its validation logic.
 // Replace only Vite's build-time base URL expression for Node's test runner.
