@@ -30,7 +30,7 @@ export const api={
  async allTransactions(id:string):Promise<Transaction[]>{
    const result:Transaction[]=[];const seen=new Set<string>();const pageSize=200;
    for(let offset=0;offset<=1_000_000;offset+=pageSize){
-     const page=await request<{transactions:Transaction[];limit:number;offset:number}>(`${connectionPath(id)}/transactions?limit=${pageSize}&offset=${offset}`);
+     const page=await request<{transactions:Transaction[];limit:number;offset:number;has_more?:boolean}>(`${connectionPath(id)}/transactions?limit=${pageSize}&offset=${offset}`);
      if(page.limit!==pageSize || page.offset!==offset){
        throw new Error('Transaction page metadata does not match the requested window; spending totals cannot be verified.');
      }
@@ -48,6 +48,12 @@ export const api={
        }
        seen.add(key);
        result.push(record);
+     }
+     if(typeof page.has_more!=='undefined' && typeof page.has_more!=='boolean'){
+       throw new Error('Invalid transaction continuation metadata; spending totals cannot be verified.');
+     }
+     if(records.length<pageSize && page.has_more===true){
+       throw new Error('Transaction page is incomplete despite a continuation hint; spending totals cannot be verified.');
      }
      if(records.length<pageSize){
        // Offset pages can shift if a sync inserts new rows during retrieval.
