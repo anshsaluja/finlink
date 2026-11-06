@@ -15,7 +15,10 @@ export const api={
  async allTransactions(id:string):Promise<Transaction[]>{
    const result:Transaction[]=[];const seen=new Set<string>();const pageSize=200;
    for(let offset=0;offset<=1_000_000;offset+=pageSize){
-     const page=await request<{transactions:Transaction[]}>(`/v1/connections/${id}/transactions?limit=${pageSize}&offset=${offset}`);
+     const page=await request<{transactions:Transaction[];limit:number;offset:number}>(`/v1/connections/${id}/transactions?limit=${pageSize}&offset=${offset}`);
+     if(page.limit!==pageSize || page.offset!==offset){
+       throw new Error('Transaction page metadata does not match the requested window; spending totals cannot be verified.');
+     }
      const records=page.transactions;
      if(!Array.isArray(records) || records.length>pageSize){
        throw new Error('Invalid transaction page returned by the API; spending totals cannot be verified.');
