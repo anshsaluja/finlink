@@ -124,3 +124,27 @@ test('rejects transaction history changed while loading subsequent pages', async
     globalThis.fetch = previous;
   }
 });
+
+test('encodes untrusted connection IDs as one URL path segment across reads', async () => {
+  const previous = globalThis.fetch;
+  const visited = [];
+  globalThis.fetch = async (url) => {
+    visited.push(new URL(url));
+    return { ok: true, json: async () => ({ transactions: [], offset: 0, limit: 200, accounts: [] }) };
+  };
+  try {
+    const id = 'mock/../other?token=secret#fragment';
+    await api.connection(id);
+    await api.accounts(id);
+    await api.transactions(id);
+    await api.allTransactions(id);
+    assert.equal(visited.length, 4);
+    for (const url of visited) {
+      assert.equal(url.pathname, '/v1/connections/' + encodeURIComponent(id) + (url.pathname.endsWith('/accounts') ? '/accounts' : url.pathname.endsWith('/transactions') ? '/transactions' : ''));
+      assert.equal(url.searchParams.has('token'), false);
+      assert.equal(url.hash, '');
+    }
+  } finally {
+    globalThis.fetch = previous;
+  }
+});
