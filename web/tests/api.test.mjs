@@ -81,3 +81,46 @@ test('mismatched page metadata fails closed', async () => {
     await assert.rejects(api.allTransactions('mock-connection'), /page metadata/);
   });
 });
+
+test('retrieves all pages and verifies the first page before reporting totals', async () => {
+  const first = Array.from({ length: 200 }, (_, i) => record('id-' + i));
+  await withMockPages(new Map([
+    [0, page(0, first)],
+    [200, page(200, [record('last')])],
+  ]), async (calls) => {
+    const records = await api.allTransactions('mock-connection');
+    assert.equal(records.length, 201);
+    assert.equal(records.at(-1).provider_external_id, 'last');
+    assert.equal(calls(), 3); // Includes the first-page consistency recheck.
+  });
+});
+
+test('rejects duplicate transaction IDs across page boundaries', async () => {
+  const first = Array.from({ length: 200 }, (_, i) => record('id-' + i));
+  await withMockPages(new Map([
+    [0, page(0, first)],
+    [200, page(200, [record('id-0')])],
+  ]), async () => {
+    await assert.rejects(api.allTransactions('mock-connection'), /Duplicate transaction ID/);
+  });
+});
+
+test('rejects transaction history changed while loading subsequent pages', async () => {
+  const first = Array.from({ length: 200 }, (_, i) => record('id-' + i));
+  const previous = globalThis.fetch;
+  let headReads = 0;
+  globalThis.fetch = async (url) => {
+    const offset = Number(new URL(url).searchParams.get('offset'));
+    if (offset === 200) return { ok: true, json: async () => page(200, [record('last')]) };
+    assert.equal(offset, 0);
+    headReads++;
+    const records = headReads === 1 ? first : [record('inserted'), ...first.slice(0, -1)];
+    return { ok: true, json: async () => page(0, records) };
+  };
+  try {
+    await assert.rejects(api.allTransactions('mock-connection'), /Transaction history changed/);
+    assert.equal(headReads, 2);
+  } finally {
+    globalThis.fetch = previous;
+  }
+});
