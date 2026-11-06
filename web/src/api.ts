@@ -36,7 +36,7 @@ export const api={
      if(!Array.isArray(records) || records.length>pageSize){
        throw new Error('Invalid transaction page returned by the API; spending totals cannot be verified.');
      }
-     if(records.some(record=>!record || typeof record.provider_external_id!=='string' || !record.provider_external_id || typeof record.amount_cents!=='number' || !Number.isSafeInteger(record.amount_cents) || typeof record.currency!=='string' || typeof record.description!=='string' || typeof record.posted_at!=='string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(record.posted_at) || !Number.isFinite(Date.parse(record.posted_at)))){
+     if(records.some(record=>!record || typeof record.provider_external_id!=='string' || !record.provider_external_id || typeof record.amount_cents!=='number' || !Number.isSafeInteger(record.amount_cents) || typeof record.currency!=='string' || typeof record.description!=='string' || typeof record.posted_at!=='string' || !isValidTransactionTimestamp(record.posted_at))){
        throw new Error('Malformed transaction record returned by the API; spending totals cannot be verified.');
      }
      for(const record of records){
