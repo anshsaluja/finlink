@@ -1,17 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
-const require = createRequire(import.meta.url);
-const { transpileModule, ModuleKind, ScriptTarget } = require('typescript');
+import { transformWithEsbuild } from 'vite';
 
 // Compile the actual API module, not a duplicate of its validation logic.
 // Replace only Vite's build-time base URL expression for Node's test runner.
 const source = readFileSync(new URL('../src/api.ts', import.meta.url), 'utf8')
   .replace(/^const BASE = .*;$/m, "const BASE = 'http://localhost:8080';");
-const compiled = transpileModule(source, {
-  compilerOptions: { module: ModuleKind.ESNext, target: ScriptTarget.ES2022 },
-}).outputText;
+const compiled = (await transformWithEsbuild(source, 'api.ts', {
+  loader: 'ts', format: 'esm', target: 'es2022',
+})).code;
 const { api, isValidTransactionTimestamp } = await import(
   'data:text/javascript;base64,' + Buffer.from(compiled).toString('base64')
 );
