@@ -148,3 +148,23 @@ test('encodes untrusted connection IDs as one URL path segment across reads', as
     globalThis.fetch = previous;
   }
 });
+
+
+test('rejects a short page that incorrectly advertises more transactions', async () => {
+  await withMockPages(new Map([[0, { ...page(0, [record('a')]), has_more: true }]]), async () => {
+    await assert.rejects(api.allTransactions('mock-connection'), /incomplete despite a continuation hint/);
+  });
+});
+
+test('accepts a short final page with an explicit false continuation hint', async () => {
+  await withMockPages(new Map([[0, { ...page(0, [record('a')]), has_more: false }]]), async (calls) => {
+    assert.equal((await api.allTransactions('mock-connection')).length, 1);
+    assert.equal(calls(), 1);
+  });
+});
+
+test('rejects a malformed continuation hint rather than trusting spending totals', async () => {
+  await withMockPages(new Map([[0, { ...page(0, [record('a')]), has_more: 'false' }]]), async () => {
+    await assert.rejects(api.allTransactions('mock-connection'), /Invalid transaction continuation metadata/);
+  });
+});
