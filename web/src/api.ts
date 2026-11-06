@@ -28,7 +28,10 @@ export const api={
      }
      for(const record of records){
        const key=record.provider_external_id;
-       if(key){if(seen.has(key))continue;seen.add(key);}
+       if(seen.has(key)){
+         throw new Error('Duplicate transaction ID across pages; spending totals cannot be verified.');
+       }
+       seen.add(key);
        result.push(record);
      }
      if(records.length<pageSize){
@@ -39,8 +42,8 @@ export const api={
          if(head.limit!==pageSize || head.offset!==0 || !Array.isArray(head.transactions) || head.transactions.length!==pageSize){
            throw new Error('Transaction history changed during retrieval; retry to verify spending totals.');
          }
-         const firstIds=result.slice(0,pageSize).map(t=>t.provider_external_id);
-         if(head.transactions.some((t,i)=>!t || t.provider_external_id!==firstIds[i])){
+         const firstPage=result.slice(0,pageSize);
+         if(head.transactions.some((t,i)=>!t || t.provider_external_id!==firstPage[i].provider_external_id || t.amount_cents!==firstPage[i].amount_cents || t.currency!==firstPage[i].currency || t.description!==firstPage[i].description || t.posted_at!==firstPage[i].posted_at)){
            throw new Error('Transaction history changed during retrieval; retry to verify spending totals.');
          }
        }
