@@ -21,9 +21,9 @@ func TestTransactionPaginationShortPageStopsContinuation(t *testing.T) {
 	}
 	var body struct {
 		Transactions []financialdata.Transaction `json:"transactions"`
-		Limit int `json:"limit"`
-		Offset int `json:"offset"`
-		MayHaveMore bool `json:"may_have_more"`
+		Limit        int                         `json:"limit"`
+		Offset       int                         `json:"offset"`
+		MayHaveMore  bool                        `json:"may_have_more"`
 	}
 	if err := json.Unmarshal(res.Body.Bytes(), &body); err != nil {
 		t.Fatal(err)
@@ -38,7 +38,7 @@ func TestTransactionPaginationShortPageStopsContinuation(t *testing.T) {
 
 type shortPageReader struct {
 	paginatedReader
-	limit int
+	limit  int
 	offset int
 }
 
