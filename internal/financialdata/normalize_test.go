@@ -40,3 +40,14 @@ func TestFingerprintChangesWithFinancialIdentity(t *testing.T) {
 		t.Fatal("amount change must change fingerprint")
 	}
 }
+
+func TestFingerprintSeparatesDelimiterContainingFields(t *testing.T) {
+	posted := time.Date(2026, 11, 1, 12, 30, 0, 0, time.UTC)
+	// These distinct financial identities collided when fields were joined
+	// using a raw unit separator without escaping.
+	first := transactionFingerprint("conn\x1facct", "merchant", "Coffee", -525, "USD", posted)
+	second := transactionFingerprint("conn", "acct\x1fmerchant", "Coffee", -525, "USD", posted)
+	if first == second {
+		t.Fatal("different connection/account identities must not share a fingerprint")
+	}
+}
