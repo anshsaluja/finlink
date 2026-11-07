@@ -38,12 +38,25 @@ func Normalize(connectionID string, result provider.SyncResult, now time.Time) (
 
 func transactionFingerprint(connectionID, accountID, description string, amount int64, currency string, postedAt time.Time) string {
 	fields := []string{connectionID, accountID, description, strconv.FormatInt(amount, 10), currency, postedAt.UTC().Format(time.RFC3339Nano)}
-	var identity strings.Builder
-	for _, field := range fields {
-		identity.WriteString(strconv.Itoa(len(field)))
-		identity.WriteByte(':')
-		identity.WriteString(field)
+	// Preserve persisted fingerprints for ordinary identifiers so a re-sync
+	// does not insert duplicates after upgrading the fingerprint algorithm.
+	// Only ambiguous delimiter-containing identities use the new encoding.
+	identity := strings.Join(fields, "\x1f")
+	if strings.ContainsRune(identity, '\x1f') {
+		// A joined identity always contains separators. Check individual fields.
+		for _, field := range fields {
+			if strings.ContainsRune(field, '\x1f') {
+				var encoded strings.Builder
+				for _, value := range fields {
+					encoded.WriteString(strconv.Itoa(len(value)))
+					encoded.WriteByte(':')
+					encoded.WriteString(value)
+				}
+				identity = encoded.String()
+				break
+			}
+		}
 	}
-	sum := sha256.Sum256([]byte(identity.String()))
+	sum := sha256.Sum256([]byte(identity))
 	return hex.EncodeToString(sum[:])
 }
