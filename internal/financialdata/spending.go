@@ -10,26 +10,26 @@ import (
 // Positive amounts represent expenditure; negative amounts are credits/refunds.
 // Transfers are excluded, and duplicate provider IDs or fingerprints are counted once.
 type SpendingSummary struct {
-	Month           string `json:"month"`
-	Currency        string `json:"currency"`
-	TotalCents      int64 `json:"total_cents"`
-	TransactionCount int `json:"transaction_count"`
-	Categories      []SpendingGroup `json:"categories"`
-	Merchants       []SpendingGroup `json:"merchants"`
+	Month            string          `json:"month"`
+	Currency         string          `json:"currency"`
+	TotalCents       int64           `json:"total_cents"`
+	TransactionCount int             `json:"transaction_count"`
+	Categories       []SpendingGroup `json:"categories"`
+	Merchants        []SpendingGroup `json:"merchants"`
 }
 type SpendingGroup struct {
-	Name            string `json:"name"`
-	AmountCents     int64 `json:"amount_cents"`
-	Count           int `json:"count"`
+	Name        string `json:"name"`
+	AmountCents int64  `json:"amount_cents"`
+	Count       int    `json:"count"`
 }
 
 // spendingIdentity uses separate fields so IDs cannot collide across providers,
 // accounts, identifier types, or delimiter-containing values.
 type spendingIdentity struct {
 	connectionID string
-	accountID string
-	kind string
-	value string
+	accountID    string
+	kind         string
+	value        string
 }
 
 func SummarizeSpending(transactions []Transaction, month time.Time, currency string) SpendingSummary {
@@ -76,6 +76,7 @@ func SummarizeSpending(transactions []Transaction, month time.Time, currency str
 	result.Merchants = sortedGroups(merchants)
 	return result
 }
+
 // normalizeMerchant groups casing and repeated whitespace without inventing merchant identities.
 func normalizeMerchant(description string) string {
 	normalized := strings.ToLower(strings.Join(strings.Fields(description), " "))
@@ -84,11 +85,15 @@ func normalizeMerchant(description string) string {
 	}
 	return strings.ToUpper(normalized[:1]) + normalized[1:]
 }
+
 func addGroup(groups map[string]*SpendingGroup, name string, cents int64) {
-	if groups[name] == nil { groups[name] = &SpendingGroup{Name: name} }
+	if groups[name] == nil {
+		groups[name] = &SpendingGroup{Name: name}
+	}
 	groups[name].AmountCents += cents
 	groups[name].Count++
 }
+
 func sortedGroups(groups map[string]*SpendingGroup) []SpendingGroup {
 	out := make([]SpendingGroup, 0, len(groups))
 	for _, g := range groups {
@@ -102,6 +107,7 @@ func sortedGroups(groups map[string]*SpendingGroup) []SpendingGroup {
 	})
 	return out
 }
+
 func isTransfer(description string) bool {
 	for _, term := range []string{"transfer to ", "transfer from ", "internal transfer", "account transfer", "zelle transfer"} {
 		if strings.Contains(description, term) {
@@ -110,6 +116,7 @@ func isTransfer(description string) bool {
 	}
 	return false
 }
+
 func categorize(description string) string {
 	switch {
 	case containsAny(description, "amazon", "target", "walmart", "shopping", "store"):
@@ -122,12 +129,16 @@ func categorize(description string) string {
 		return "Transport"
 	case containsAny(description, "netflix", "spotify", "subscription"):
 		return "Subscriptions"
-	default: return "Other"
+	default:
+		return "Other"
 	}
 }
+
 func containsAny(s string, terms ...string) bool {
 	for _, term := range terms {
-		if strings.Contains(s, term) { return true }
+		if strings.Contains(s, term) {
+			return true
+		}
 	}
 	return false
 }
