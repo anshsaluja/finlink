@@ -135,12 +135,32 @@ func (s *server) getTransactions(w http.ResponseWriter, r *http.Request) {
 		}
 		limit = parsed
 	}
-	transactions, err := s.data.TransactionsByConnection(r.Context(), r.PathValue("id"), limit)
+	offset := 0
+	if raw := r.URL.Query().Get("offset"); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil || parsed < 0 || parsed > 1000000 {
+			writeError(w, http.StatusBadRequest, "invalid_offset", "offset must be between 0 and 1000000")
+			return
+		}
+		offset = parsed
+	}
+	var transactions []financialdata.Transaction
+	var err error
+	if paged, ok := s.data.(interface {
+		TransactionsByConnectionPage(context.Context, string, int, int) ([]financialdata.Transaction, error)
+	}); ok {
+		transactions, err = paged.TransactionsByConnectionPage(r.Context(), r.PathValue("id"), limit, offset)
+	} else if offset == 0 {
+		transactions, err = s.data.TransactionsByConnection(r.Context(), r.PathValue("id"), limit)
+	} else {
+		writeError(w, http.StatusServiceUnavailable, "pagination_unavailable", "transaction pagination is unavailable")
+		return
+	}
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "read_failed", "transactions could not be read")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"transactions": transactions})
+	writeJSON(w, http.StatusOK, map[string]any{"transactions": transactions, "limit": limit, "offset": offset, "may_have_more": len(transactions) == limit})
 }
 
 func (s *server) connectionExists(w http.ResponseWriter, r *http.Request) bool {
