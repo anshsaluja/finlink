@@ -37,7 +37,13 @@ func Normalize(connectionID string, result provider.SyncResult, now time.Time) (
 }
 
 func transactionFingerprint(connectionID, accountID, description string, amount int64, currency string, postedAt time.Time) string {
-	identity := strings.Join([]string{connectionID, accountID, description, strconv.FormatInt(amount, 10), currency, postedAt.UTC().Format(time.RFC3339Nano)}, "\x1f")
-	sum := sha256.Sum256([]byte(identity))
+	fields := []string{connectionID, accountID, description, strconv.FormatInt(amount, 10), currency, postedAt.UTC().Format(time.RFC3339Nano)}
+	var identity strings.Builder
+	for _, field := range fields {
+		identity.WriteString(strconv.Itoa(len(field)))
+		identity.WriteByte(':')
+		identity.WriteString(field)
+	}
+	sum := sha256.Sum256([]byte(identity.String()))
 	return hex.EncodeToString(sum[:])
 }
