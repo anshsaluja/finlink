@@ -73,3 +73,15 @@ func TestSummarizeSpendingIdentityTypesAndDelimiters(t *testing.T) {
   t.Fatalf("identity type and account boundaries must remain distinct: %+v", summary)
  }
 }
+
+func TestSummarizeSpendingRejectsMissingPostedAt(t *testing.T) {
+	month := time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)
+	transactions := []Transaction{
+		{ConnectionID: "bank", AccountProviderExternalID: "checking", ProviderExternalID: "missing", Description: "Coffee", AmountCents: 500, Currency: "USD"},
+		{ConnectionID: "bank", AccountProviderExternalID: "checking", ProviderExternalID: "valid", Description: "Coffee", AmountCents: 700, Currency: "USD", PostedAt: month},
+	}
+	summary := SummarizeSpending(transactions, month, "USD")
+	if summary.TotalCents != 700 || summary.TransactionCount != 1 {
+		t.Fatalf("missing timestamps must not be included in spending totals: %+v", summary)
+	}
+}
