@@ -10,17 +10,17 @@ import (
 // Positive amounts represent expenditure; negative amounts are credits/refunds.
 // Transfers are excluded, and duplicate provider IDs or fingerprints are counted once.
 type SpendingSummary struct {
-	Month string `json:"month"`
-	Currency string `json:"currency"`
-	TotalCents int64 `json:"total_cents"`
+	Month           string `json:"month"`
+	Currency        string `json:"currency"`
+	TotalCents      int64 `json:"total_cents"`
 	TransactionCount int `json:"transaction_count"`
-	Categories []SpendingGroup `json:"categories"`
-	Merchants []SpendingGroup `json:"merchants"`
+	Categories      []SpendingGroup `json:"categories"`
+	Merchants       []SpendingGroup `json:"merchants"`
 }
 type SpendingGroup struct {
-	Name string `json:"name"`
-	AmountCents int64 `json:"amount_cents"`
-	Count int `json:"count"`
+	Name            string `json:"name"`
+	AmountCents     int64 `json:"amount_cents"`
+	Count           int `json:"count"`
 }
 
 // spendingIdentity uses separate fields so IDs cannot collide across providers,
@@ -40,9 +40,13 @@ func SummarizeSpending(transactions []Transaction, month time.Time, currency str
 	merchants := map[string]*SpendingGroup{}
 	seen := map[spendingIdentity]bool{}
 	for _, tx := range transactions {
-		if tx.PostedAt.IsZero() || tx.PostedAt.UTC().Format("2006-01") != result.Month || strings.ToUpper(strings.TrimSpace(tx.Currency)) != currency || tx.AmountCents <= 0 { continue }
+		if tx.PostedAt.IsZero() || tx.PostedAt.UTC().Format("2006-01") != result.Month || strings.ToUpper(strings.TrimSpace(tx.Currency)) != currency || tx.AmountCents <= 0 {
+			continue
+		}
 		description := strings.ToLower(strings.TrimSpace(tx.Description))
-		if isTransfer(description) { continue }
+		if isTransfer(description) {
+			continue
+		}
 		identity := strings.TrimSpace(tx.ProviderExternalID)
 		identityType := "provider"
 		if identity == "" {
@@ -53,12 +57,16 @@ func SummarizeSpending(transactions []Transaction, month time.Time, currency str
 		// same timestamp, amount, and merchant. Never infer duplicates from those fields.
 		if identity != "" {
 			key := spendingIdentity{tx.ConnectionID, tx.AccountProviderExternalID, identityType, identity}
-			if seen[key] { continue }
+			if seen[key] {
+				continue
+			}
 			seen[key] = true
 		}
 		category := categorize(description)
 		merchant := normalizeMerchant(tx.Description)
-		if merchant == "" { merchant = "Unknown merchant" }
+		if merchant == "" {
+			merchant = "Unknown merchant"
+		}
 		addGroup(categories, category, tx.AmountCents)
 		addGroup(merchants, merchant, tx.AmountCents)
 		result.TotalCents += tx.AmountCents
@@ -71,7 +79,9 @@ func SummarizeSpending(transactions []Transaction, month time.Time, currency str
 // normalizeMerchant groups casing and repeated whitespace without inventing merchant identities.
 func normalizeMerchant(description string) string {
 	normalized := strings.ToLower(strings.Join(strings.Fields(description), " "))
-	if normalized == "" { return "" }
+	if normalized == "" {
+		return ""
+	}
 	return strings.ToUpper(normalized[:1]) + normalized[1:]
 }
 func addGroup(groups map[string]*SpendingGroup, name string, cents int64) {
@@ -81,30 +91,43 @@ func addGroup(groups map[string]*SpendingGroup, name string, cents int64) {
 }
 func sortedGroups(groups map[string]*SpendingGroup) []SpendingGroup {
 	out := make([]SpendingGroup, 0, len(groups))
-	for _, g := range groups { out = append(out, *g) }
+	for _, g := range groups {
+		out = append(out, *g)
+	}
 	sort.Slice(out, func(i, j int) bool {
-		if out[i].AmountCents != out[j].AmountCents { return out[i].AmountCents > out[j].AmountCents }
+		if out[i].AmountCents != out[j].AmountCents {
+			return out[i].AmountCents > out[j].AmountCents
+		}
 		return out[i].Name < out[j].Name
 	})
 	return out
 }
 func isTransfer(description string) bool {
 	for _, term := range []string{"transfer to ", "transfer from ", "internal transfer", "account transfer", "zelle transfer"} {
-		if strings.Contains(description, term) { return true }
+		if strings.Contains(description, term) {
+			return true
+		}
 	}
 	return false
 }
 func categorize(description string) string {
 	switch {
-	case containsAny(description, "amazon", "target", "walmart", "shopping", "store"): return "Shopping"
-	case containsAny(description, "starbucks", "restaurant", "cafe", "doordash", "uber eats", "grocery", "whole foods"): return "Food & Dining"
-	case containsAny(description, "rent", "electric", "utility", "internet", "phone bill"): return "Bills"
-	case containsAny(description, "uber", "lyft", "metro", "transit", "gas station"): return "Transport"
-	case containsAny(description, "netflix", "spotify", "subscription"): return "Subscriptions"
+	case containsAny(description, "amazon", "target", "walmart", "shopping", "store"):
+		return "Shopping"
+	case containsAny(description, "starbucks", "restaurant", "cafe", "doordash", "uber eats", "grocery", "whole foods"):
+		return "Food & Dining"
+	case containsAny(description, "rent", "electric", "utility", "internet", "phone bill"):
+		return "Bills"
+	case containsAny(description, "uber", "lyft", "metro", "transit", "gas station"):
+		return "Transport"
+	case containsAny(description, "netflix", "spotify", "subscription"):
+		return "Subscriptions"
 	default: return "Other"
 	}
 }
 func containsAny(s string, terms ...string) bool {
-	for _, term := range terms { if strings.Contains(s, term) { return true } }
+	for _, term := range terms {
+		if strings.Contains(s, term) { return true }
+	}
 	return false
 }
