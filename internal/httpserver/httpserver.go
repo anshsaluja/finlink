@@ -178,6 +178,8 @@ func (s *server) connectionExists(w http.ResponseWriter, r *http.Request) bool {
 
 func writeJSON(w http.ResponseWriter, status int, value any) {
 	w.Header().Set("Content-Type", "application/json")
+	// Connection details, sync metadata, and financial records must not be cached.
+	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(value)
 }
