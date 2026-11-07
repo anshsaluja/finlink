@@ -32,7 +32,7 @@ func TestSummarizeSpendingFiltersAndDeduplicates(t *testing.T) {
 }
 
 func TestSummarizeSpendingEmptyMonth(t *testing.T) {
-	summary := SummarizeSpending(nil,time.Date(2026, 2, 1, 0, 0, 0, 0,time.UTC), "USD")
+	summary := SummarizeSpending(nil, time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC), "USD")
 	if summary.TotalCents != 0 || len(summary.Categories) != 0 || len(summary.Merchants) != 0 {
 		t.Fatalf("unexpected empty summary: %+v", summary)
 	}
@@ -47,10 +47,10 @@ func TestSummarizeSpendingDistinctPurchasesWithoutProviderIDs(t *testing.T) {
 	}
 	summary := SummarizeSpending(transactions, day, "USD")
 	if summary.TotalCents != 1700 || summary.TransactionCount != 3 {
-	t.Fatalf("purchases without stable identifiers must not be deduplicated: %+v", summary)
+		t.Fatalf("purchases without stable identifiers must not be deduplicated: %+v", summary)
 	}
 	if len(summary.Merchants) != 1 || summary.Merchants[0].Name != "Starbucks" || summary.Merchants[0].Count != 3 {
-	t.Fatalf("merchant capitalization and whitespace must be normalized: %+v", summary.Merchants)
+		t.Fatalf("merchant capitalization and whitespace must be normalized: %+v", summary.Merchants)
 	}
 }
 
@@ -63,7 +63,7 @@ func TestSummarizeSpendingDeduplicatesFingerprints(t *testing.T) {
 	}
 	summary := SummarizeSpending(transactions, day, "USD")
 	if summary.TotalCents != 1000 || summary.TransactionCount != 2 {
-	t.Fatalf("fingerprints should deduplicate only within their connection and account: %+v", summary)
+		t.Fatalf("fingerprints should deduplicate only within their connection and account: %+v", summary)
 	}
 }
 
@@ -78,7 +78,7 @@ func TestSummarizeSpendingIdentityTypesAndDelimiters(t *testing.T) {
 	}
 	summary := SummarizeSpending(transactions, day, "USD")
 	if summary.TotalCents != 2600 || summary.TransactionCount != 4 {
-	t.Fatalf("identity type and account boundaries must remain distinct: %+v", summary)
+		t.Fatalf("identity type and account boundaries must remain distinct: %+v", summary)
 	}
 }
 
