@@ -1,6 +1,10 @@
 package financialdata
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -38,5 +42,26 @@ func TestFingerprintChangesWithFinancialIdentity(t *testing.T) {
 	changed := transactionFingerprint("conn", "acct", "Coffee", -625, "USD", posted)
 	if base == changed {
 		t.Fatal("amount change must change fingerprint")
+	}
+}
+
+func TestFingerprintSeparatesDelimiterContainingFields(t *testing.T) {
+	posted := time.Date(2026, 11, 1, 12, 30, 0, 0, time.UTC)
+	// These distinct financial identities collided when fields were joined
+	// using a raw unit separator without escaping.
+	first := transactionFingerprint("conn\x1facct", "merchant", "Coffee", -525, "USD", posted)
+	second := transactionFingerprint("conn", "acct\x1fmerchant", "Coffee", -525, "USD", posted)
+	if first == second {
+		t.Fatal("different connection/account identities must not share a fingerprint")
+	}
+}
+
+func TestFingerprintPreservesPersistedLegacyIdentity(t *testing.T) {
+	posted := time.Date(2026, 11, 1, 12, 30, 0, 0, time.UTC)
+	fields := []string{"conn", "acct", "Coffee", strconv.FormatInt(-525, 10), "USD", posted.Format(time.RFC3339Nano)}
+	legacy := sha256.Sum256([]byte(strings.Join(fields, "\x1f")))
+	got := transactionFingerprint("conn", "acct", "Coffee", -525, "USD", posted)
+	if got != hex.EncodeToString(legacy[:]) {
+		t.Fatal("existing transaction fingerprints must remain stable across upgrades")
 	}
 }
