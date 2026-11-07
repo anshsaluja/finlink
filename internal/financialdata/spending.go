@@ -40,7 +40,7 @@ func SummarizeSpending(transactions []Transaction, month time.Time, currency str
  merchants := map[string]*SpendingGroup{}
  seen := map[spendingIdentity]bool{}
  for _, tx := range transactions {
-  if tx.PostedAt.UTC().Format("2006-01") != result.Month || strings.ToUpper(strings.TrimSpace(tx.Currency)) != currency || tx.AmountCents <= 0 { continue }
+  if tx.PostedAt.IsZero() || tx.PostedAt.UTC().Format("2006-01") != result.Month || strings.ToUpper(strings.TrimSpace(tx.Currency)) != currency || tx.AmountCents <= 0 { continue }
   description := strings.ToLower(strings.TrimSpace(tx.Description))
   if isTransfer(description) { continue }
   identity := strings.TrimSpace(tx.ProviderExternalID)
