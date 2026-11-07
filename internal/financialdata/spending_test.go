@@ -75,10 +75,10 @@ func TestSummarizeSpendingIdentityTypesAndDelimiters(t *testing.T) {
 }
 
 func TestSummarizeSpendingRejectsMissingPostedAt(t *testing.T) {
-	month := time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)
+	month := time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC)
 	transactions := []Transaction{
 		{ConnectionID: "bank", AccountProviderExternalID: "checking", ProviderExternalID: "missing", Description: "Coffee", AmountCents: 500, Currency: "USD"},
-		{ConnectionID: "bank", AccountProviderExternalID: "checking", ProviderExternalID: "valid", Description: "Coffee", AmountCents: 700, Currency: "USD", PostedAt: month},
+		{ConnectionID: "bank", AccountProviderExternalID: "checking", ProviderExternalID: "valid", Description: "Coffee", AmountCents: 700, Currency: "USD", PostedAt: month.AddDate(0, 0, 1)},
 	}
 	summary := SummarizeSpending(transactions, month, "USD")
 	if summary.TotalCents != 700 || summary.TransactionCount != 1 {
