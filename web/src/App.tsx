@@ -46,6 +46,9 @@ export function App(){
   const previousMonthKey=previousMonth?previousMonth.toISOString().slice(0,7):'';
   const hasPreviousHistory=months.includes(previousMonthKey);
   const previous=useMemo(()=>spending(txns,previousMonthKey),[txns,previousMonthKey]);
+  // Plot only months represented in the synchronized history; missing months are not zero-spend months.
+  const trend=useMemo(()=>months.slice(0,6).reverse().map(key=>({month:key,total:spending(txns,key).total})),[months,txns]);
+  const trendMax=Math.max(1,...trend.map(point=>point.total));
   const refresh=async(id:string)=>{setLoading(true);try{const [c,a,t]=await Promise.all([api.connection(id),api.accounts(id),api.allTransactions(id)]);if(activeConnectionId.current!==id)return;setConnection(c);setAccounts(a.accounts||[]);setTxns(t)}finally{if(activeConnectionId.current===id)setLoading(false)}};
   useEffect(()=>{if(!run||!connection||!['requested','processing'].includes(run.status))return;
     let active=true;let polling=false;const timer=setInterval(async()=>{if(polling)return;polling=true;try{const next=await api.syncRun(run.id);if(!active || activeConnectionId.current!==connection.id)return;setRun(next);
@@ -70,6 +73,7 @@ export function App(){
       {months.length===0?<p className="empty">No transaction history available yet. Run a sync to explore spending.</p>:<>
       <label htmlFor="spending-month">Month</label> <select id="spending-month" value={selectedMonth} onChange={e=>setMonth(e.target.value)}>{months.map(m=><option key={m} value={m}>{m}</option>)}</select>
       <div className="status"><div><span>Total spent</span><strong>{money(insights.total)}</strong></div><div><span>Purchases</span><strong>{insights.count}</strong></div><div><span>Previous month</span><strong>{hasPreviousHistory?money(previous.total):'No data'}</strong></div><div><span>Change</span><strong>{hasPreviousHistory&&previous.total?((insights.total-previous.total)/previous.total*100).toFixed(1)+'%':'Not enough history'}</strong></div></div>
+      <div className="trend" aria-label="Monthly spending history"><h3>Spending over time</h3><p>Last {trend.length} month{trend.length===1?'':'s'} with transaction history · USD purchases</p><div className="trend-bars">{trend.map(point=><div className="trend-column" key={point.month}><strong>{money(point.total)}</strong><div className="trend-track"><div className="trend-fill" style={{height:`${point.total/trendMax*100}%`}} /></div><span>{point.month}</span></div>)}</div></div>
       {insights.count===0?<p className="empty">No qualifying purchases in this month.</p>:<div className="grid"><div><h3>By category</h3>{insights.categories.map(([name,amount])=><div key={name} className="account"><span>{name}</span><strong>{money(amount)}</strong><progress aria-label={name+' share of spending'} value={amount} max={insights.total}/></div>)}</div><div><h3>Top merchants</h3>{insights.merchants.slice(0,5).map(([name,v])=><div className="account" key={name}><span>{name} · {v.count} payment{v.count===1?'':'s'}</span><strong>{money(v.amount)}</strong></div>)}</div></div>}
       </>}</section></>}
     <footer>Provider-independent data · Durable Kafka sync · Idempotent persistence · Mock institutions only</footer></main>;
