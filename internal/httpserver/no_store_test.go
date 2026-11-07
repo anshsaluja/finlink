@@ -8,9 +8,9 @@ import (
 
 func TestJSONResponsesDisableCaching(t *testing.T) {
 	tests := []struct {
-		name string
+		name   string
 		status int
-		write func(http.ResponseWriter)
+		write  func(http.ResponseWriter)
 	}{
 		{name: "success", status: http.StatusOK, write: func(w http.ResponseWriter) {
 			writeJSON(w, http.StatusOK, map[string]any{"transactions": []string{"synthetic"}})
