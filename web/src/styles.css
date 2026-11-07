@@ -1,4 +1,95 @@
-:root{font-family:Inter,ui-sans-serif,system-ui,sans-serif;color:#17212b;background:#f5f7f9;font-synthesis:none}*{box-sizing:border-box}body{margin:0}main{max-width:1100px;margin:auto;padding:52px 24px}header{display:flex;justify-content:space-between;align-items:start;margin-bottom:36px}h1{font-size:44px;letter-spacing:-2px;margin:5px 0}h2{font-size:18px;margin:0 0 6px}p{color:#66727d;margin:0;line-height:1.5}.eyebrow{font-size:11px;font-weight:800;letter-spacing:1.5px;color:#56705d}.badge{background:#e5f1e8;color:#356244;padding:7px 12px;border-radius:20px;font-size:12px;font-weight:700}.panel,.status,.run{background:white;border:1px solid #e2e7ea;border-radius:14px;padding:22px;box-shadow:0 2px 8px #17212b08}.connect{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}form{display:flex;gap:10px}select,button{border-radius:9px;padding:11px 14px;border:1px solid #d6dde1;background:white;font:inherit}button{background:#17212b;color:white;border-color:#17212b;font-weight:650;cursor:pointer}button:disabled{opacity:.45;cursor:not-allowed}.status{display:grid;grid-template-columns:1.2fr .8fr 1.5fr auto;gap:20px;align-items:center;margin-bottom:12px}.status div{display:flex;flex-direction:column;gap:5px}.status span,.account span,.transactions span{font-size:12px;color:#7a858e}.status strong{font-size:14px}.run{display:flex;gap:16px;align-items:center;padding:12px 18px;margin-bottom:18px;font-size:13px}.run span:nth-child(2){text-transform:capitalize}.run.succeeded{border-left:4px solid #4d7b5c}.run.failed{border-left:4px solid #9d4c4c}.grid{display:grid;grid-template-columns:1fr 1.4fr;gap:18px}.empty{padding:34px 0}.account,.transactions article{display:flex;justify-content:space-between;align-items:center;border-top:1px solid #edf0f2;padding:16px 0}.account:first-of-type,.transactions article:first-child{margin-top:12px}.account div,.transactions div{display:flex;flex-direction:column;gap:4px}.credit{color:#35704a}.debit{color:#8a4141}.error{background:#fff0f0;color:#8a4141;padding:12px 16px;border-radius:9px;margin-bottom:16px}footer{text-align:center;color:#8a949c;font-size:12px;margin-top:32px}@media(max-width:760px){main{padding:28px 16px}header,.connect{align-items:stretch}.connect,header{gap:18px}.connect{flex-direction:column}form{flex-direction:column}.status{grid-template-columns:1fr 1fr}.status button{grid-column:1/-1}.grid{grid-template-columns:1fr}h1{font-size:36px}}
-
-/* The trend chart uses real synchronized monthly totals; heights scale to the largest observed month. */
-.trend{margin:24px 0;padding:20px;border:1px solid #e2e7ea;border-radius:12px;background:#f8faf9}.trend h3{margin:0 0 4px;font-size:15px}.trend>p{font-size:12px}.trend-bars{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;align-items:end;overflow-x:auto;margin-top:20px}.trend-column{min-width:0;display:flex;flex-direction:column;align-items:center;gap:8px;font-size:11px}.trend-column strong{font-size:clamp(10px,1.2vw,13px);white-space:nowrap}.trend-column span{color:#66727d;white-space:nowrap}.trend-track{height:116px;width:100%;max-width:68px;display:flex;align-items:end;border-radius:7px;background:#e6eee9;overflow:hidden}.trend-fill{width:100%;background:#438568;border-radius:7px 7px 0 0;min-height:0}.account progress{width:100%;max-width:120px;accent-color:#438568}button:focus-visible,select:focus-visible{outline:3px solid #438568;outline-offset:3px}@media(max-width:760px){.trend{padding:14px}.trend-bars{gap:8px}.trend-column strong{font-size:10px}.trend-column span{font-size:10px}}
+:root {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #182b31;
+  background: #f3f6f4;
+  font-synthesis: none;
+  font-variant-numeric: tabular-nums;
+}
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; }
+main { max-width: 1220px; margin: auto; padding: 48px 32px 36px; }
+header { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; margin-bottom: 28px; }
+header > div { max-width: 650px; }
+.eyebrow { display: inline-block; color: #36866e; font-size: 11px; font-weight: 800; letter-spacing: 2px; }
+h1 { margin: 9px 0 12px; font-size: clamp(42px, 5vw, 62px); line-height: 1.05; letter-spacing: -2.7px; font-weight: 780; }
+h2 { margin: 0 0 8px; font-size: 18px; font-weight: 750; letter-spacing: -.35px; }
+h3 { margin: 0 0 12px; font-size: 15px; letter-spacing: -.2px; }
+p { margin: 0; color: #62747a; line-height: 1.6; font-size: 14px; }
+.badge { flex: 0 0 auto; margin-top: 12px; padding: 9px 14px; border: 1px solid #c5e6d8; border-radius: 999px; background: #e8f7ee; color: #24684e; font-size: 12px; font-weight: 750; }
+.panel, .status, .run { border: 1px solid #e1e9e5; border-radius: 18px; background: #fff; box-shadow: 0 8px 32px rgba(23, 57, 46, .035); }
+.panel { padding: 26px; min-width: 0; }
+.connect { display: flex; justify-content: space-between; align-items: center; gap: 28px; margin-bottom: 18px; background: linear-gradient(120deg, #fff 55%, #f0faf4); }
+.connect > div { max-width: 370px; }
+form { display: flex; align-items: end; flex-wrap: wrap; gap: 10px; }
+label { color: #41565b; font-size: 12px; font-weight: 700; }
+form label { flex-basis: 100%; }
+select, button { min-height: 44px; padding: 11px 15px; border: 1px solid #cbdad4; border-radius: 10px; font: inherit; font-size: 13px; }
+select { background: #fff; color: #24383e; max-width: 100%; }
+button { background: #163d34; color: #fff; border-color: #163d34; font-weight: 750; cursor: pointer; transition: background .15s ease, transform .15s ease; }
+button:hover:not(:disabled) { background: #245e4d; }
+button:active:not(:disabled) { transform: translateY(1px); }
+button:disabled { opacity: .5; cursor: not-allowed; }
+button:focus-visible, select:focus-visible { outline: 3px solid #69c8a2; outline-offset: 3px; }
+.status { display: grid; grid-template-columns: 1.15fr .8fr 1.3fr auto; gap: 18px; align-items: center; padding: 20px 24px; margin-bottom: 16px; }
+.status > div { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.status span, .account span, .transactions span { font-size: 12px; color: #72848a; }
+.status strong { font-size: 14px; font-weight: 750; overflow-wrap: anywhere; }
+.run { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; padding: 14px 18px; margin-bottom: 16px; font-size: 13px; }
+.run span:nth-child(2) { text-transform: capitalize; font-weight: 700; }
+.run.succeeded { border-left: 4px solid #2b9c70; }
+.run.failed { border-left: 4px solid #c65d5d; }
+.error { padding: 14px 18px; margin-bottom: 16px; background: #fff1ef; border: 1px solid #f0c8c2; border-radius: 12px; color: #8f3838; }
+.grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 18px; align-items: start; }
+.grid > * { min-width: 0; }
+.empty { padding: 28px 0; color: #849297; }
+.account, .transactions article { display: flex; justify-content: space-between; align-items: center; gap: 18px; padding: 16px 0; border-top: 1px solid #edf1ee; }
+.account:first-of-type, .transactions article:first-child { margin-top: 14px; }
+.account > div, .transactions article > div { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.account strong, .transactions strong { overflow-wrap: anywhere; }
+.account b, .transactions b { flex: 0 0 auto; font-size: 14px; }
+.transactions { max-height: 410px; overflow-y: auto; padding-right: 5px; scrollbar-color: #c5d7cf transparent; }
+.credit { color: #16855d; }
+.debit { color: #b14f51; }
+.panel[aria-labelledby="spending-heading"] { margin-top: 18px; }
+.panel[aria-labelledby="spending-heading"] > p { margin-bottom: 20px; }
+.panel[aria-labelledby="spending-heading"] > label { margin-right: 8px; }
+.panel[aria-labelledby="spending-heading"] > .status { margin-top: 22px; background: #173e35; border-color: #173e35; color: #fff; box-shadow: none; }
+.panel[aria-labelledby="spending-heading"] > .status span { color: #b6d6c9; }
+.panel[aria-labelledby="spending-heading"] > .status strong { font-size: clamp(15px, 2vw, 22px); letter-spacing: -.5px; }
+.trend { margin: 24px 0; padding: 24px; border: 1px solid #e1eae4; border-radius: 16px; background: linear-gradient(180deg, #f9fcfa, #f3f8f5); }
+.trend h3 { margin: 0 0 4px; }
+.trend > p { font-size: 12px; }
+.trend-bars { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 14px; align-items: end; margin-top: 24px; }
+.trend-column { min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 9px; font-size: 11px; }
+.trend-column strong { max-width: 100%; font-size: clamp(10px, 1.2vw, 13px); overflow-wrap: anywhere; text-align: center; }
+.trend-column span { color: #62747a; white-space: nowrap; }
+.trend-track { height: 140px; width: 100%; max-width: 74px; display: flex; align-items: end; border-radius: 9px; background: #e1eee7; overflow: hidden; }
+.trend-fill { width: 100%; background: linear-gradient(180deg, #54bb91, #257d60); border-radius: 9px 9px 0 0; }
+.account progress { width: 100%; max-width: 130px; accent-color: #2e9671; }
+footer { margin-top: 36px; padding-top: 20px; border-top: 1px solid #e1e9e5; color: #82928e; text-align: center; font-size: 12px; }
+@media (max-width: 900px) {
+  main { padding: 32px 20px; }
+  .connect { flex-direction: column; align-items: stretch; }
+  .connect > div { max-width: none; }
+  .status { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .status button { grid-column: 1 / -1; }
+}
+@media (max-width: 640px) {
+  main { padding: 24px 14px; }
+  header { flex-direction: column; gap: 8px; }
+  h1 { letter-spacing: -2px; }
+  .badge { margin-top: 0; }
+  .panel { padding: 19px; }
+  form { flex-direction: column; align-items: stretch; }
+  form label { flex-basis: auto; }
+  .grid { grid-template-columns: minmax(0, 1fr); }
+  .status { padding: 17px; gap: 20px 12px; }
+  .panel[aria-labelledby="spending-heading"] > .status strong { font-size: 17px; }
+  .trend { padding: 14px; }
+  .trend-bars { gap: 6px; }
+  .trend-column strong, .trend-column span { font-size: 9px; }
+  .trend-track { height: 105px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  button { transition: none; }
+}
