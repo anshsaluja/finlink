@@ -11,13 +11,13 @@ func TestSummarizeSpendingFiltersAndDeduplicates(t *testing.T) {
 	return Transaction{ConnectionID: "bank-1", AccountProviderExternalID: "checking", ProviderExternalID: id, Description: description, AmountCents: cents, Currency: currency, PostedAt: date}
 	}
 	transactions := []Transaction{
-	tx("1", "Amazon", "USD", 2500, january),
-	tx("1", "Amazon", "USD", 2500, january),
-	tx("2", "Starbucks", "USD", 700, january),
-	tx("3", "Transfer to savings", "USD", 9000, january),
-	tx("4", "Amazon refund", "USD", -500, january),
-	tx("5", "Amazon", "EUR", 800, january),
-	tx("6", "Amazon", "USD", 800, january.AddDate(0,1, 0)),
+		tx("1", "Amazon", "USD", 2500, january),
+		tx("1", "Amazon", "USD", 2500, january),
+		tx("2", "Starbucks", "USD", 700, january),
+		tx("3", "Transfer to savings", "USD", 9000, january),
+		tx("4", "Amazon refund", "USD", -500, january),
+		tx("5", "Amazon", "EUR", 800, january),
+		tx("6", "Amazon", "USD", 800, january.AddDate(0, 1, 0)),
 	}
 	summary := SummarizeSpending(transactions, january, "usd")
 	if summary.TotalCents != 3200 || summary.TransactionCount != 2 {
@@ -32,7 +32,7 @@ func TestSummarizeSpendingFiltersAndDeduplicates(t *testing.T) {
 }
 
 func TestSummarizeSpendingEmptyMonth(t *testing.T) {
-	summary := SummarizeSpending(nil,time.Date(2026,2,1,0,0,0,0,time.UTC), "USD")
+	summary := SummarizeSpending(nil,time.Date(2026, 2, 1, 0, 0, 0, 0,time.UTC), "USD")
 	if summary.TotalCents != 0 || len(summary.Categories) != 0 || len(summary.Merchants) != 0 {
 		t.Fatalf("unexpected empty summary: %+v", summary)
 	}
@@ -41,9 +41,9 @@ func TestSummarizeSpendingEmptyMonth(t *testing.T) {
 func TestSummarizeSpendingDistinctPurchasesWithoutProviderIDs(t *testing.T) {
 	day := time.Date(2026, 3, 5, 12, 0, 0, 0, time.UTC)
 	transactions := []Transaction{
-	{ConnectionID: "c1", AccountProviderExternalID: "a1", Description: "  STARBUCKS  ", AmountCents: 500, Currency: "USD", PostedAt: day},
-	{ConnectionID: "c1", AccountProviderExternalID: "a1", Description: "starbucks", AmountCents: 700, Currency: "USD", PostedAt: day},
-	{ConnectionID: "c1", AccountProviderExternalID: "a1", Description: "Starbucks", AmountCents: 500, Currency: "USD", PostedAt: day},
+		{ConnectionID: "c1", AccountProviderExternalID: "a1", Description: "  STARBUCKS  ", AmountCents: 500, Currency: "USD", PostedAt: day},
+		{ConnectionID: "c1", AccountProviderExternalID: "a1", Description: "starbucks", AmountCents: 700, Currency: "USD", PostedAt: day},
+		{ConnectionID: "c1", AccountProviderExternalID: "a1", Description: "Starbucks", AmountCents: 500, Currency: "USD", PostedAt: day},
 	}
 	summary := SummarizeSpending(transactions, day, "USD")
 	if summary.TotalCents != 1700 || summary.TransactionCount != 3 {
@@ -57,9 +57,9 @@ func TestSummarizeSpendingDistinctPurchasesWithoutProviderIDs(t *testing.T) {
 func TestSummarizeSpendingDeduplicatesFingerprints(t *testing.T) {
 	day := time.Date(2026, 3, 5, 12, 0, 0, 0, time.UTC)
 	transactions := []Transaction{
-	{ConnectionID: "c1", AccountProviderExternalID: "a1", Fingerprint: "same", Description: "Coffee", AmountCents: 500, Currency: "USD", PostedAt: day},
-	{ConnectionID: "c1", AccountProviderExternalID: "a1", Fingerprint: "same", Description: "Coffee", AmountCents: 500, Currency: "USD", PostedAt: day},
-	{ConnectionID: "c1", AccountProviderExternalID: "a2", Fingerprint: "same", Description: "Coffee", AmountCents: 500, Currency: "USD", PostedAt: day},
+		{ConnectionID: "c1", AccountProviderExternalID: "a1", Fingerprint: "same", Description: "Coffee", AmountCents: 500, Currency: "USD", PostedAt: day},
+		{ConnectionID: "c1", AccountProviderExternalID: "a1", Fingerprint: "same", Description: "Coffee", AmountCents: 500, Currency: "USD", PostedAt: day},
+		{ConnectionID: "c1", AccountProviderExternalID: "a2", Fingerprint: "same", Description: "Coffee", AmountCents: 500, Currency: "USD", PostedAt: day},
 	}
 	summary := SummarizeSpending(transactions, day, "USD")
 	if summary.TotalCents != 1000 || summary.TransactionCount != 2 {
@@ -70,11 +70,11 @@ func TestSummarizeSpendingDeduplicatesFingerprints(t *testing.T) {
 func TestSummarizeSpendingIdentityTypesAndDelimiters(t *testing.T) {
 	day := time.Date(2026, 3, 5, 12, 0, 0, 0, time.UTC)
 	transactions := []Transaction{
-	{ConnectionID: "bank", AccountProviderExternalID: "checking", ProviderExternalID: "same", Description: "Coffee", AmountCents: 500, Currency: "USD", PostedAt: day},
-	{ConnectionID: "bank", AccountProviderExternalID: "checking", Fingerprint: "same", Description: "Coffee", AmountCents: 600, Currency: "USD", PostedAt: day},
-	{ConnectionID: "bank|checking", AccountProviderExternalID: "a", ProviderExternalID: "same", Description: "Coffee", AmountCents: 700, Currency: "USD", PostedAt: day},
-	{ConnectionID: "bank", AccountProviderExternalID: "checking|a", ProviderExternalID: "same", Description: "Coffee", AmountCents: 800, Currency: "USD", PostedAt: day},
-	{ConnectionID: "bank", AccountProviderExternalID: "checking", ProviderExternalID: "same", Description: "Coffee", AmountCents: 500, Currency: "USD", PostedAt: day},
+		{ConnectionID: "bank", AccountProviderExternalID: "checking", ProviderExternalID: "same", Description: "Coffee", AmountCents: 500, Currency: "USD", PostedAt: day},
+		{ConnectionID: "bank", AccountProviderExternalID: "checking", Fingerprint: "same", Description: "Coffee", AmountCents: 600, Currency: "USD", PostedAt: day},
+		{ConnectionID: "bank|checking", AccountProviderExternalID: "a", ProviderExternalID: "same", Description: "Coffee", AmountCents: 700, Currency: "USD", PostedAt: day},
+		{ConnectionID: "bank", AccountProviderExternalID: "checking|a", ProviderExternalID: "same", Description: "Coffee", AmountCents: 800, Currency: "USD", PostedAt: day},
+		{ConnectionID: "bank", AccountProviderExternalID: "checking", ProviderExternalID: "same", Description: "Coffee", AmountCents: 500, Currency: "USD", PostedAt: day},
 	}
 	summary := SummarizeSpending(transactions, day, "USD")
 	if summary.TotalCents != 2600 || summary.TransactionCount != 4 {
