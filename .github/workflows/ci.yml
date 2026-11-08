@@ -45,6 +45,8 @@ jobs:
         run: go test ./...
       - name: Vet
         run: go vet ./...
+      - name: Validate mock-bank smoke runner syntax
+        run: python3 -c "import ast, pathlib; ast.parse(pathlib.Path('scripts/smoke_mock_banks.py').read_text())"
 
   dashboard:
     name: React dashboard
