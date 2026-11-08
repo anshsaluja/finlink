@@ -27,7 +27,7 @@ export const api={
      if(records.some(record=>!record || typeof record.provider_external_id!=='string' || !record.provider_external_id || typeof record.amount_cents!=='number' || !Number.isSafeInteger(record.amount_cents) || typeof record.currency!=='string' || typeof record.description!=='string' || typeof record.posted_at!=='string')){
        throw new Error('Malformed transaction record returned by the API; spending totals cannot be verified.');
      }
-     if(records.some(record=>Number.isNaN(Date.parse(record.posted_at)) || !/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}/.test(record.posted_at))){
+     if(records.some(record=>Number.isNaN(Date.parse(record.posted_at)) || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(record.posted_at))){
        throw new Error('Invalid transaction timestamp; spending totals cannot be verified.');
      }
      if(typeof page.has_more!=='undefined' && typeof page.has_more!=='boolean'){
