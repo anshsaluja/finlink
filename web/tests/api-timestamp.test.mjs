@@ -1,33 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
-
-// TypeScript is distributed as CommonJS; require avoids ESM interop differences
-// between local Node and the GitHub Actions runner.
-const require = createRequire(import.meta.url);
-const ts = require('typescript');
-
-// Compile the real exported validator in isolation. Loading the entire API module
-// would also evaluate browser-only import.meta.env and unrelated request helpers.
+// Extract the real validator without loading browser-only import.meta.env.
+// The validator has no nested function declarations or external dependencies.
 const source = readFileSync(new URL('../src/api.ts', import.meta.url), 'utf8');
-const file = ts.createSourceFile('api.ts', source, ts.ScriptTarget.ES2022, true, ts.ScriptKind.TS);
-const validator = file.statements.find(node =>
-  ts.isFunctionDeclaration(node) && node.name?.text === 'validPostedAt' &&
-  node.modifiers?.some(modifier => modifier.kind === ts.SyntaxKind.ExportKeyword)
-);
-assert.ok(validator, 'Expected the exported validPostedAt implementation in src/api.ts');
-const compiled = ts.transpileModule(validator.getText(file), {
-  compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS },
-  reportDiagnostics: true
-});
-assert.equal(compiled.diagnostics?.length ?? 0, 0);
-// Evaluate the isolated validator as CommonJS to avoid data-URL ESM loader
-// differences between local Node and GitHub Actions environments.
-const moduleExports = {};
-new Function('exports', compiled.outputText)(moduleExports);
-const { validPostedAt } = moduleExports;
-assert.equal(typeof validPostedAt, 'function', 'Compiled validator must be exported');
+const start = source.indexOf('export function validPostedAt(');
+const end = source.indexOf('\nconst connectionPath=', start);
+assert.ok(start >= 0 && end > start, 'Expected validPostedAt before connectionPath');
+const extracted = source.slice(start, end).trim();
+assert.match(extracted, /^export function validPostedAt\(value:string\):boolean \{/);
+const js = extracted.replace('export function validPostedAt(value:string):boolean', 'function validPostedAt(value)');
+const validPostedAt = new Function(js + '\nreturn validPostedAt;')();
 
 test('accepts valid UTC, offset and leap-day transaction timestamps', () => {
   for (const value of [
