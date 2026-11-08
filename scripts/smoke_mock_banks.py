@@ -39,7 +39,10 @@ def main():
     assert request("GET", "/health")["status"] == "ok"
     for provider in ("northstar", "harbor"):
         connection = request(
-            "POST", "/v1/connections", {"provider": provider, "credentials": (\n                {"username": "smoke-" + uuid.uuid4().hex, "password": "mock-only"}\n                if provider == "northstar" else {"token": "smoke-" + uuid.uuid4().hex}\n            )},
+            "POST", "/v1/connections", {"provider": provider, "credentials": (
+                {"username": "smoke-" + uuid.uuid4().hex, "password": "mock-only"}
+                if provider == "northstar" else {"token": "smoke-" + uuid.uuid4().hex}
+            )},
             expected=201,
         )
         connection_id = str(connection["id"])
