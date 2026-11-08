@@ -51,7 +51,7 @@ export function App(){
   const trend=useMemo(()=>months.slice(0,6).reverse().map(key=>({month:key,total:spending(txns,key).total})),[months,txns]);
   const trendMax=Math.max(1,...trend.map(point=>point.total));
   const refresh=async(id:string)=>{setLoading(true);try{const [c,a,t]=await Promise.all([api.connection(id),api.accounts(id),api.allTransactions(id)]);if(activeConnectionId.current!==id)return;setConnection(c);setAccounts(a.accounts||[]);setTxns(t);setError('')}catch(e){if(activeConnectionId.current===id){setAccounts([]);setTxns([]);setError(`Unable to verify synchronized records: ${(e as Error).message}`)}}finally{if(activeConnectionId.current===id)setLoading(false)}};
-  useEffect(()=>{if(!run||!connection||!['requested','processing'].includes(run.status))return;
+  // Restore only the connection ID; demo credentials are never persisted.\n  useEffect(()=>{\n    try {\n      const id=window.localStorage.getItem('finlink.connectionId');\n      if(id){activeConnectionId.current=id;void refresh(id)}\n    } catch { /* Private browsing can disable storage; manual connection still works. */ }\n  },[]);\n  useEffect(()=>{if(!run||!connection||!['requested','processing'].includes(run.status))return;
     let active=true;let polling=false;const timer=setInterval(async()=>{if(polling)return;polling=true;try{const next=await api.syncRun(run.id);if(!active || activeConnectionId.current!==connection.id)return;setRun(next);
       if(next.status==='succeeded'){clearInterval(timer);await refresh(connection.id)}
     }catch(e){if(active && activeConnectionId.current===connection.id)setError((e as Error).message)}finally{polling=false}},1000);
@@ -59,7 +59,7 @@ export function App(){
   },[run,connection]);
   async function connect(e:FormEvent){e.preventDefault();setBusy(true);setError('');try{
     const credentials:Record<string,string>=provider==='northstar'?{username:'demo',password:'demo'}:{token:'demo'};
-    const c=await api.connect(provider,credentials);activeConnectionId.current=c.id;setLoading(false);setConnection(c);setAccounts([]);setTxns([]);setRun(null);setMonth('');
+    const c=await api.connect(provider,credentials);activeConnectionId.current=c.id;try{window.localStorage.setItem('finlink.connectionId',c.id)}catch{/* Storage is optional. */}setLoading(false);setConnection(c);setAccounts([]);setTxns([]);setRun(null);setMonth('');
   }catch(e){setError((e as Error).message)}finally{setBusy(false)}}
   async function sync(){if(!connection)return;const id=connection.id;setBusy(true);setError('');try{const next=await api.sync(id);if(activeConnectionId.current===id)setRun(next)}catch(e){if(activeConnectionId.current===id)setError((e as Error).message)}finally{setBusy(false)}}
   return <main><header><div><span className="eyebrow">FINANCIAL DATA CONNECTIVITY</span><h1>FinLink</h1><p>Connect a sandbox institution, synchronize transactions, and explore actual mock-bank records.</p></div><span className="badge">Sandbox · No live banks</span></header>
