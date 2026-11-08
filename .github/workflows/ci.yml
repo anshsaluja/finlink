@@ -63,5 +63,7 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Typecheck
         run: npm run typecheck
+      - name: Timestamp regression tests
+        run: npm test
       - name: Build
         run: npm run build
