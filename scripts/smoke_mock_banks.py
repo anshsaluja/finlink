@@ -1,0 +1,96 @@
+#!/usr/bin/env python3
+"""End-to-end smoke test for locally running FinLink API and sync worker.
+
+Requires mock-bank infrastructure, applied migrations, API and worker to be running.
+Uses only the Python standard library and creates isolated mock connections.
+"""
+import json
+import os
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+import uuid
+
+BASE = os.environ.get("FINLINK_API_BASE_URL", "http://127.0.0.1:8080").rstrip("/")
+TIMEOUT = int(os.environ.get("FINLINK_SMOKE_TIMEOUT_SECONDS", "60"))
+
+
+def request(method, path, payload=None, headers=None, expected=200):
+    data = json.dumps(payload).encode() if payload is not None else None
+    req = urllib.request.Request(
+        BASE + path, data=data, method=method,
+        headers={"Content-Type": "application/json", **(headers or {})},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as response:
+            body = json.load(response)
+            assert response.status == expected, (path, response.status, body)
+            assert response.headers.get("Cache-Control") == "no-store", path
+            return body
+    except urllib.error.HTTPError as error:
+        raise AssertionError(
+            f"{method} {path}: expected {expected}, got {error.code}: "
+            f"{error.read().decode()}"
+        ) from error
+
+
+def main():
+    assert request("GET", "/health")["status"] == "ok"
+    for provider in ("northstar", "harbor"):
+        connection = request(
+            "POST", "/v1/connections", {"provider": provider, "credentials": {}},
+            expected=201,
+        )
+        connection_id = str(connection["id"])
+        path = "/v1/connections/" + urllib.parse.quote(connection_id, safe="")
+        restored = request("GET", path)
+        assert str(restored["id"]) == connection_id, (provider, restored)
+
+        key = "finlink-smoke-" + str(uuid.uuid4())
+        run = request(
+            "POST", path + "/sync", headers={"Idempotency-Key": key},
+            expected=202,
+        )
+        replay = request(
+            "POST", path + "/sync", headers={"Idempotency-Key": key},
+            expected=202,
+        )
+        assert run["id"] == replay["id"], (run, replay)
+
+        deadline = time.monotonic() + TIMEOUT
+        while True:
+            current = request("GET", "/v1/sync-runs/" + str(run["id"]))
+            status = current["status"]
+            if status == "succeeded":
+                break
+            if status == "failed":
+                raise AssertionError(f"{provider} sync failed: {current}")
+            if time.monotonic() >= deadline:
+                raise TimeoutError(f"{provider} sync timed out: {current}")
+            time.sleep(1)
+
+        accounts = request("GET", path + "/accounts")["accounts"]
+        assert accounts, f"{provider} returned no accounts"
+        seen = set()
+        offset = 0
+        while True:
+            page = request("GET", path + f"/transactions?limit=1&offset={offset}")
+            transactions = page["transactions"]
+            for transaction in transactions:
+                txid = str(transaction["id"])
+                assert txid not in seen, f"duplicate transaction: {txid}"
+                seen.add(txid)
+            offset += len(transactions)
+            if not page["may_have_more"]:
+                break
+            assert transactions, f"{provider} pagination stalled"
+            assert offset <= 1000000, "pagination exceeded API maximum offset"
+        assert seen, f"{provider} returned no transactions"
+        print(f"PASS {provider}: {len(accounts)} accounts, {len(seen)} transactions")
+
+    print("PASS mock-bank end-to-end smoke test")
+
+
+if __name__ == "__main__":
+    main()
