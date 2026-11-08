@@ -3,11 +3,16 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
 
-// Compile the real API module without starting Vite or contacting a bank.
-// Replace only the Vite environment expression, not the validation logic.
-const source = readFileSync(new URL('../src/api.ts', import.meta.url), 'utf8')
-  .replace("import.meta.env.VITE_API_BASE_URL", "undefined");
-const compiled = ts.transpileModule(source, {
+// Compile the real exported validator in isolation. Loading the entire API module
+// would also evaluate browser-only import.meta.env and unrelated request helpers.
+const source = readFileSync(new URL('../src/api.ts', import.meta.url), 'utf8');
+const file = ts.createSourceFile('api.ts', source, ts.ScriptTarget.ES2022, true, ts.ScriptKind.TS);
+const validator = file.statements.find(node =>
+  ts.isFunctionDeclaration(node) && node.name?.text === 'validPostedAt' &&
+  node.modifiers?.some(modifier => modifier.kind === ts.SyntaxKind.ExportKeyword)
+);
+assert.ok(validator, 'Expected the exported validPostedAt implementation in src/api.ts');
+const compiled = ts.transpileModule(validator.getText(file), {
   compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext },
   reportDiagnostics: true
 });
