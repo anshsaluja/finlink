@@ -2,7 +2,8 @@ import {FormEvent, useEffect, useMemo, useRef, useState} from 'react';
 import {api, Account, Connection, SyncRun, Transaction} from './api';
 
 const money = (c:number, currency='USD') => new Intl.NumberFormat('en-US',{style:'currency',currency}).format(c/100);
-const monthOf = (date:string) => date.slice(0,7);
+const monthOf = (date:string) => new Date(date).toISOString().slice(0,7);
+const isUSD = (currency:string) => currency.trim().toUpperCase()==='USD';
 const categoryOf = (description:string) => {
   const d=description.toLowerCase();
   if (/transfer|zelle|payment from|payment to/.test(d)) return 'Transfers';
@@ -19,7 +20,7 @@ function spending(transactions:Transaction[],month:string) {
   const seen=new Set<string>(); const categories=new Map<string,number>(); const merchants=new Map<string,{amount:number,count:number}>();
   let total=0; let count=0;
   for(const t of transactions) {
-    if(monthOf(t.posted_at)!==month || t.currency!=='USD' || t.amount_cents>=0) continue;
+    if(monthOf(t.posted_at)!==month || !isUSD(t.currency) || t.amount_cents>=0) continue;
     // Provider transaction IDs are stable within the selected connection. Never dedupe by amount/date.
     if(t.provider_external_id){if(seen.has(t.provider_external_id))continue;seen.add(t.provider_external_id);}
     const category=categoryOf(t.description);
@@ -29,7 +30,7 @@ function spending(transactions:Transaction[],month:string) {
     const merchant=merchantOf(t.description);const current=merchants.get(merchant)||{amount:0,count:0};
     merchants.set(merchant,{amount:current.amount+amount,count:current.count+1});
   }
-  return {total,count,categories:[...categories].sort((a,b)=>b[1]-a[1]),merchants:[...merchants].sort((a,b)=>b[1].amount-a[1].amount)};
+  return {total,count,categories:[...categories].sort((a,b)=>b[1]-a[1] || a[0].localeCompare(b[0])),merchants:[...merchants].sort((a,b)=>b[1].amount-a[1].amount || a[0].localeCompare(b[0]))};
 }
 export function App(){
   const [provider,setProvider]=useState('northstar'),[connection,setConnection]=useState<Connection|null>(null);
@@ -38,7 +39,7 @@ export function App(){
   const [month,setMonth]=useState('');
   // A response from an earlier connection must never overwrite the active institution.
   const activeConnectionId=useRef<string|null>(null);
-  const months=useMemo(()=>[...new Set(txns.filter(t=>t.currency==='USD' && /^\d{4}-(0[1-9]|1[0-2])-\d{2}/.test(t.posted_at)).map(t=>monthOf(t.posted_at)))].sort().reverse(),[txns]);
+  const months=useMemo(()=>[...new Set(txns.filter(t=>isUSD(t.currency) && !Number.isNaN(Date.parse(t.posted_at))).map(t=>monthOf(t.posted_at)))].sort().reverse(),[txns]);
   const selectedMonth=months.includes(month)?month:months[0]||'';
   const insights=useMemo(()=>spending(txns,selectedMonth),[txns,selectedMonth]);
   const previousMonth=selectedMonth?new Date(selectedMonth+'-01T00:00:00Z'):null;
