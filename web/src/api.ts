@@ -7,7 +7,7 @@ async function request<T>(path:string,init?:RequestInit):Promise<T>{const r=awai
 // Require an unambiguous ISO timestamp with an explicit timezone. Date.parse alone
 // silently normalizes invalid calendar dates (for example, February 30).
 export function validPostedAt(value:string):boolean {
-  const match=/^(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2}):(\\d{2}):(\\d{2})(?:\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$/.exec(value);
+  const match=/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,9})?(Z|[+-]\d{2}:\d{2})$/.exec(value);
   if(!match)return false;
   const [,year,month,day,hour,minute,second,zone]=match;
   const y=Number(year),m=Number(month),d=Number(day),h=Number(hour),min=Number(minute),sec=Number(second);
