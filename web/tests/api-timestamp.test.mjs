@@ -1,7 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import * as ts from 'typescript';
+import { createRequire } from 'node:module';
+
+// TypeScript is distributed as CommonJS; require avoids ESM interop differences
+// between local Node and the GitHub Actions runner.
+const require = createRequire(import.meta.url);
+const ts = require('typescript');
 
 // Compile the real exported validator in isolation. Loading the entire API module
 // would also evaluate browser-only import.meta.env and unrelated request helpers.
