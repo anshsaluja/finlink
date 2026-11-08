@@ -12,11 +12,11 @@ export function validPostedAt(value:string):boolean {
   const [,year,month,day,hour,minute,second,zone]=match;
   const y=Number(year),m=Number(month),d=Number(day),h=Number(hour),min=Number(minute),sec=Number(second);
   if(m<1||m>12||d<1||h>23||min>59||sec>59)return false;
-  const daysInMonth=new Date(Date.UTC(y,m,0)).getUTCDate();
+  // Date.UTC maps years 0–99 to 1900–1999; calculate leap years directly.\n  const leap=y%4===0 && (y%100!==0 || y%400===0);\n  const daysInMonth=[31,leap?29:28,31,30,31,30,31,31,30,31,30,31][m-1];
   if(d>daysInMonth)return false;
   if(zone!=='Z'){
     const zh=Number(zone.slice(1,3)),zm=Number(zone.slice(4,6));
-    if(zh>23||zm>59)return false;
+    // ISO 8601 offsets cannot exceed 14:00 (and 14:00 has zero minutes).\n    if(zh>14||zm>59||(zh===14&&zm!==0))return false;
   }
   return Number.isFinite(Date.parse(value));
 }
