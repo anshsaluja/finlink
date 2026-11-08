@@ -109,3 +109,36 @@ func TestSummarizeSpendingUsesUTCMonthAndCurrency(t *testing.T) {
 		t.Fatalf("UTC month boundaries and currency filtering failed: %+v", summary)
 	}
 }
+
+func TestSummarizeSpendingKeepsProviderIDsDistinctAcrossConnections(t *testing.T) {
+	day := time.Date(2026, 6, 12, 12, 0, 0, 0, time.UTC)
+	transactions := []Transaction{
+		{ConnectionID: "bank-a", AccountProviderExternalID: "checking", ProviderExternalID: "shared-id", Description: "Coffee", AmountCents: 500, Currency: "USD", PostedAt: day},
+		{ConnectionID: "bank-b", AccountProviderExternalID: "checking", ProviderExternalID: "shared-id", Description: "Coffee", AmountCents: 700, Currency: "USD", PostedAt: day},
+		{ConnectionID: "bank-a", AccountProviderExternalID: "checking", ProviderExternalID: "shared-id", Description: "Coffee", AmountCents: 500, Currency: "USD", PostedAt: day},
+	}
+	summary := SummarizeSpending(transactions, day, "USD")
+	if summary.TotalCents != 1200 || summary.TransactionCount != 2 {
+		t.Fatalf("provider IDs must be scoped to connection and account: %+v", summary)
+	}
+}
+
+func TestSummarizeSpendingDeterministicRankingAndTransferExclusion(t *testing.T) {
+	day := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
+	transactions := []Transaction{
+		{ProviderExternalID: "1", Description: "Target", AmountCents: 1000, Currency: "USD", PostedAt: day},
+		{ProviderExternalID: "2", Description: "Starbucks", AmountCents: 1000, Currency: "USD", PostedAt: day},
+		{ProviderExternalID: "3", Description: "Internal transfer", AmountCents: 5000, Currency: "USD", PostedAt: day},
+		{ProviderExternalID: "4", Description: "Spotify", AmountCents: 250, Currency: "USD", PostedAt: day},
+	}
+	summary := SummarizeSpending(transactions, day, "USD")
+	if summary.TotalCents != 2250 || summary.TransactionCount != 3 {
+		t.Fatalf("internal transfers must not inflate spending: %+v", summary)
+	}
+	if len(summary.Categories) != 3 || summary.Categories[0].Name != "Food & Dining" || summary.Categories[1].Name != "Shopping" || summary.Categories[2].Name != "Subscriptions" {
+		t.Fatalf("equal totals must sort by category name: %+v", summary.Categories)
+	}
+	if len(summary.Merchants) != 3 || summary.Merchants[0].Name != "Starbucks" || summary.Merchants[1].Name != "Target" {
+		t.Fatalf("equal merchant totals must sort by merchant name: %+v", summary.Merchants)
+	}
+}
