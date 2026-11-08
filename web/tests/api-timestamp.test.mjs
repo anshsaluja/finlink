@@ -13,13 +13,16 @@ const validator = file.statements.find(node =>
 );
 assert.ok(validator, 'Expected the exported validPostedAt implementation in src/api.ts');
 const compiled = ts.transpileModule(validator.getText(file), {
-  compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext },
+  compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS },
   reportDiagnostics: true
 });
 assert.equal(compiled.diagnostics?.length ?? 0, 0);
-const { validPostedAt } = await import(
-  'data:text/javascript;base64,' + Buffer.from(compiled.outputText).toString('base64')
-);
+// Evaluate the isolated validator as CommonJS to avoid data-URL ESM loader
+// differences between local Node and GitHub Actions environments.
+const moduleExports = {};
+new Function('exports', compiled.outputText)(moduleExports);
+const { validPostedAt } = moduleExports;
+assert.equal(typeof validPostedAt, 'function', 'Compiled validator must be exported');
 
 test('accepts valid UTC, offset and leap-day transaction timestamps', () => {
   for (const value of [
