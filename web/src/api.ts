@@ -4,6 +4,22 @@ export type Account={provider_external_id:string;name:string;type:string;currenc
 export type Transaction={provider_external_id:string;description:string;amount_cents:number;currency:string;posted_at:string};
 export type SyncRun={id:number;status:string;account_count:number;transaction_count:number;error_message?:string};
 async function request<T>(path:string,init?:RequestInit):Promise<T>{const r=await fetch(`${BASE}${path}`,{...init,headers:{'Content-Type':'application/json',...(init?.headers||{})}});if(!r.ok){const e=await r.json().catch(()=>({message:r.statusText}));throw new Error(e.message||`Request failed (${r.status})`)}return r.json()}
+// Require an unambiguous ISO timestamp with an explicit timezone. Date.parse alone
+// silently normalizes invalid calendar dates (for example, February 30).
+export function validPostedAt(value:string):boolean {
+  const match=/^(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2}):(\\d{2}):(\\d{2})(?:\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$/.exec(value);
+  if(!match)return false;
+  const [,year,month,day,hour,minute,second,zone]=match;
+  const y=Number(year),m=Number(month),d=Number(day),h=Number(hour),min=Number(minute),sec=Number(second);
+  if(m<1||m>12||d<1||h>23||min>59||sec>59)return false;
+  const daysInMonth=new Date(Date.UTC(y,m,0)).getUTCDate();
+  if(d>daysInMonth)return false;
+  if(zone!=='Z'){
+    const zh=Number(zone.slice(1,3)),zm=Number(zone.slice(4,6));
+    if(zh>23||zm>59)return false;
+  }
+  return Number.isFinite(Date.parse(value));
+}
 const connectionPath=(id:string)=>`/v1/connections/${encodeURIComponent(id)}`;
 export const api={
  connect:(provider:string,credentials:Record<string,string>)=>request<Connection>('/v1/connections',{method:'POST',body:JSON.stringify({provider,credentials})}),
@@ -27,7 +43,7 @@ export const api={
      if(records.some(record=>!record || typeof record.provider_external_id!=='string' || !record.provider_external_id || typeof record.amount_cents!=='number' || !Number.isSafeInteger(record.amount_cents) || typeof record.currency!=='string' || typeof record.description!=='string' || typeof record.posted_at!=='string')){
        throw new Error('Malformed transaction record returned by the API; spending totals cannot be verified.');
      }
-     if(records.some(record=>Number.isNaN(Date.parse(record.posted_at)) || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(record.posted_at))){
+     if(records.some(record=>!validPostedAt(record.posted_at))){
        throw new Error('Invalid transaction timestamp; spending totals cannot be verified.');
      }
      if(typeof page.has_more!=='undefined' && typeof page.has_more!=='boolean'){
