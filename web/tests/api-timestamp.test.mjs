@@ -97,3 +97,33 @@ test('rejects malformed records before displaying spending', async () => {
   const load=makeLoader(async () => page(0,[{...transaction(1),posted_at:'2026-02-30T12:00:00Z'}],false));
   await assert.rejects(load('mock-bank'),/Invalid transaction timestamp/);
 });
+
+
+test('handles exactly one full transaction page followed by an empty page', async () => {
+  const records=Array.from({length:200},(_,i)=>transaction(i));
+  const calls=[];
+  const load=makeLoader(async path => {
+    const offset=Number(new URL(path,'http://localhost').searchParams.get('offset'));
+    calls.push(offset);
+    return page(offset,offset===0?records:[],offset===0);
+  });
+  assert.deepEqual(await load('mock-bank'),records);
+  assert.deepEqual(calls,[0,200,0]);
+});
+
+test('rejects inconsistent pagination metadata before computing analytics', async () => {
+  const load=makeLoader(async () => page(200,[transaction(1)],false));
+  await assert.rejects(load('mock-bank'),/page metadata does not match/);
+});
+
+test('rejects invalid financial amounts rather than silently summing them', async () => {
+  for(const amount of [Number.NaN,Number.POSITIVE_INFINITY,1.25,Number.MAX_SAFE_INTEGER+1]){
+    const load=makeLoader(async () => page(0,[{...transaction(1),amount_cents:amount}],false));
+    await assert.rejects(load('mock-bank'),/Malformed transaction record/);
+  }
+});
+
+test('rejects incomplete pages that claim more records exist', async () => {
+  const load=makeLoader(async () => page(0,[transaction(1)],true));
+  await assert.rejects(load('mock-bank'),/incomplete despite a continuation hint/);
+});
