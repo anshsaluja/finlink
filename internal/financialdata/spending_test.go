@@ -8,7 +8,7 @@ import (
 func TestSummarizeSpendingFiltersAndDeduplicates(t *testing.T) {
 	january := time.Date(2026, 1, 15, 12, 0, 0, 0, time.UTC)
 	tx := func(id, description, currency string, cents int64, date time.Time) Transaction {
-	return Transaction{ConnectionID: "bank-1", AccountProviderExternalID: "checking", ProviderExternalID: id, Description: description, AmountCents: cents, Currency: currency, PostedAt: date}
+		return Transaction{ConnectionID: "bank-1", AccountProviderExternalID: "checking", ProviderExternalID: id, Description: description, AmountCents: cents, Currency: currency, PostedAt: date}
 	}
 	transactions := []Transaction{
 		tx("1", "Amazon", "USD", 2500, january),
