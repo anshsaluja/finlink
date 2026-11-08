@@ -40,3 +40,60 @@ test('rejects impossible dates, ambiguous times and malformed offsets', () => {
     'not-a-date'
   ]) assert.equal(validPostedAt(value), false, value);
 });
+
+const methodStart = source.indexOf('async allTransactions(id:string):Promise<Transaction[]>');
+const methodEnd = source.indexOf('\n }\n};', methodStart);
+assert.ok(methodStart >= 0 && methodEnd > methodStart, 'Expected allTransactions method');
+const methodSource = source.slice(methodStart, methodEnd + 3)
+  .replace('async allTransactions(id:string):Promise<Transaction[]>', 'async function allTransactions(id)')
+  .replace(/const result:Transaction\[\]=\[\]/, 'const result=[]')
+  .replace(/const seen=new Set<string>\(\)/, 'const seen=new Set()')
+  .replace(/request<\{transactions:Transaction\[\];limit:number;offset:number;has_more\?:boolean\}>/g, 'request')
+  .replace(/request<\{transactions:Transaction\[\];limit:number;offset:number\}>/g, 'request');
+function makeLoader(request) {
+  return new Function('request', 'connectionPath', 'validPostedAt',
+    methodSource + '\nreturn allTransactions;')(request, id => '/v1/connections/' + encodeURIComponent(id), validPostedAt);
+}
+const transaction = (id) => ({
+  provider_external_id: String(id), amount_cents: -575, currency: 'USD',
+  description: 'Corner Coffee', posted_at: '2026-11-08T12:00:00Z'
+});
+const page = (offset, records, has_more) => ({offset,limit:200,transactions:records,has_more});
+
+test('loads all pages without dropping transactions or changing order', async () => {
+  const records = Array.from({length: 201}, (_, i) => transaction(i));
+  const calls=[];
+  const load = makeLoader(async path => {
+    const offset=Number(new URL(path,'http://localhost').searchParams.get('offset'));
+    calls.push(offset);
+    return page(offset, records.slice(offset,offset+200), offset===0);
+  });
+  assert.deepEqual(await load('mock-bank'), records);
+  assert.deepEqual(calls,[0,200,0]);
+});
+
+test('rejects duplicate IDs across pages instead of double counting', async () => {
+  const first=Array.from({length:200},(_,i)=>transaction(i));
+  const load=makeLoader(async path => {
+    const offset=Number(new URL(path,'http://localhost').searchParams.get('offset'));
+    return page(offset,offset===0?first:[transaction(0)],offset===0);
+  });
+  await assert.rejects(load('mock-bank'),/Duplicate transaction ID/);
+});
+
+test('rejects changing history during pagination', async () => {
+  const first=Array.from({length:200},(_,i)=>transaction(i));
+  let headReads=0;
+  const load=makeLoader(async path => {
+    const offset=Number(new URL(path,'http://localhost').searchParams.get('offset'));
+    if(offset===200)return page(200,[transaction(200)],false);
+    headReads++;
+    return page(0,headReads===1?first:[transaction('changed'),...first.slice(1)],true);
+  });
+  await assert.rejects(load('mock-bank'),/history changed during retrieval/);
+});
+
+test('rejects malformed records before displaying spending', async () => {
+  const load=makeLoader(async () => page(0,[{...transaction(1),posted_at:'2026-02-30T12:00:00Z'}],false));
+  await assert.rejects(load('mock-bank'),/Invalid transaction timestamp/);
+});
