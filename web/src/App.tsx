@@ -50,7 +50,29 @@ export function App(){
   // Plot only months represented in the synchronized history; missing months are not zero-spend months.
   const trend=useMemo(()=>months.slice(0,6).reverse().map(key=>({month:key,total:spending(txns,key).total})),[months,txns]);
   const trendMax=Math.max(1,...trend.map(point=>point.total));
-  const refresh=async(id:string)=>{setLoading(true);try{const [c,a,t]=await Promise.all([api.connection(id),api.accounts(id),api.allTransactions(id)]);if(activeConnectionId.current!==id)return;setConnection(c);setAccounts(a.accounts||[]);setTxns(t);setError('')}catch(e){if(activeConnectionId.current===id){setAccounts([]);setTxns([]);setError(`Unable to verify synchronized records: ${(e as Error).message}`)}}finally{if(activeConnectionId.current===id)setLoading(false)}};
+  const refresh=async(id:string)=>{
+    setLoading(true);
+    try {
+      // Restore the connection first so a failed records request still offers Retry.
+      const c=await api.connection(id);
+      if(activeConnectionId.current!==id)return;
+      setConnection(c);
+      const [a,t]=await Promise.all([api.accounts(id),api.allTransactions(id)]);
+      if(activeConnectionId.current!==id)return;
+      setAccounts(a.accounts||[]);
+      setTxns(t);
+      setError('');
+    } catch(e) {
+      if(activeConnectionId.current===id){
+        // Never show potentially stale balances or analytics after a failed refresh.
+        setAccounts([]);
+        setTxns([]);
+        setError(`Unable to verify synchronized records: ${(e as Error).message}`);
+      }
+    } finally {
+      if(activeConnectionId.current===id)setLoading(false);
+    }
+  };
   // Restore only the connection ID; demo credentials are never persisted.
   useEffect(()=>{
     try {
