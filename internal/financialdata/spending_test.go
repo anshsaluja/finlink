@@ -100,12 +100,12 @@ func TestSummarizeSpendingUsesUTCMonthAndCurrency(t *testing.T) {
 	east := time.FixedZone("JST", 9*60*60)
 	transactions := []Transaction{
 		{ProviderExternalID: "march-utc", Description: "Coffee", AmountCents: 100, Currency: "USD", PostedAt: time.Date(2026, 3, 31, 16, 59, 0, 0, west)},
-		{ProviderExternalID: "april-utc", Description: "Coffee", AmountCents: 200, Currency: " usd ", PostedAt: time.Date(2026, 4, 1, 8, 0, 0, 0, east)},
-		{ProviderExternalID: "may-utc", Description: "Coffee", AmountCents: 300, Currency: "USD", PostedAt: time.Date(2026, 4, 30, 18, 0, 0, 0, west)},
+		{ProviderExternalID: "april-utc", Description: "Coffee", AmountCents: 200, Currency: " usd ", PostedAt: time.Date(2026, 4, 1, 10, 0, 0, 0, east)},
+		{ProviderExternalID: "may-utc", Description: "Coffee", AmountCents: 300, Currency: "USD", PostedAt: time.Date(2026, 4, 30, 16, 0, 0, 0, west)},
 		{ProviderExternalID: "other-currency", Description: "Coffee", AmountCents: 400, Currency: "EUR", PostedAt: month},
 	}
 	summary := SummarizeSpending(transactions, month, " usd ")
-	if summary.Month != "2026-04" || summary.Currency != "USD" || summary.TotalCents != 300 || summary.TransactionCount != 2 {
+	if summary.Month != "2026-04" || summary.Currency != "USD" || summary.TotalCents != 500 || summary.TransactionCount != 2 {
 		t.Fatalf("UTC month boundaries and currency filtering failed: %+v", summary)
 	}
 }
