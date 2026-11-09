@@ -61,7 +61,7 @@ Go, PostgreSQL, Apache Kafka, Redis, Docker Compose, React, TypeScript, and Vite
 
    ```bash
    for migration in migrations/*.up.sql; do
-     docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U finlink -d finlink < "$migration" || break
+     docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U finlink -d finlink < "$migration" || exit 1
    done
 
    docker compose exec -T kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --if-not-exists --topic finlink.sync.requested --partitions 3 --replication-factor 1
