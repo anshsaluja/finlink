@@ -6,3 +6,6 @@ bin/
 dist/
 coverage/
 *.log
+node_modules/
+web/node_modules/
+web/dist/
