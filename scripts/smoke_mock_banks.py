@@ -75,6 +75,8 @@ def main():
 
         accounts = request("GET", path + "/accounts")["accounts"]
         assert accounts, f"{provider} returned no accounts"
+        assert current.get("account_count", 0) > 0, (provider, current)
+        assert current.get("transaction_count", 0) > 0, (provider, current)
         seen = set()
         offset = 0
         while True:
