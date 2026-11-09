@@ -20,7 +20,7 @@ function spending(transactions:Transaction[],month:string) {
   const seen=new Set<string>(); const categories=new Map<string,number>(); const merchants=new Map<string,{amount:number,count:number}>();
   let total=0; let count=0;
   for(const t of transactions) {
-    if(monthOf(t.posted_at)!==month || !isUSD(t.currency) || t.amount_cents>=0) continue;
+    if(!Number.isFinite(Date.parse(t.posted_at)) || monthOf(t.posted_at)!==month || !isUSD(t.currency) || t.amount_cents>=0) continue;
     // Provider transaction IDs are stable within the selected connection. Never dedupe by amount/date.
     if(t.provider_external_id){if(seen.has(t.provider_external_id))continue;seen.add(t.provider_external_id);}
     const category=categoryOf(t.description);
