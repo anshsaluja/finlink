@@ -187,3 +187,21 @@ test('rejects missing or non-string transaction identities before computing spen
     await assert.rejects(load('mock-bank'),/Malformed transaction record/);
   }
 });
+
+test('recovers after a transient failure on a later page without reusing partial results', async () => {
+  const records=Array.from({length:201},(_,i)=>transaction(i));
+  let failOnce=true;
+  const offsets=[];
+  const load=makeLoader(async path => {
+    const offset=Number(new URL(path,'http://localhost').searchParams.get('offset'));
+    offsets.push(offset);
+    if(offset===200 && failOnce){
+      failOnce=false;
+      throw new Error('Temporary upstream outage');
+    }
+    return page(offset,records.slice(offset,offset+200),offset===0);
+  });
+  await assert.rejects(load('mock-bank'),/Temporary upstream outage/);
+  assert.deepEqual(await load('mock-bank'),records);
+  assert.deepEqual(offsets,[0,200,0,200,0]);
+});
