@@ -236,3 +236,17 @@ test('recovers on retry when final head-page verification fails transiently', as
   assert.deepEqual(await load('mock-bank'),records);
   assert.deepEqual(offsets,[0,200,0,0,200,0]);
 });
+
+
+test('rejects non-array transaction payloads instead of treating them as empty history', async () => {
+  for (const records of [null, undefined, {}, 'not-an-array']) {
+    const load=makeLoader(async () => page(0,records,false));
+    await assert.rejects(load('mock-bank'),/Invalid transaction page/);
+  }
+});
+
+test('rejects oversized transaction pages before producing misleading totals', async () => {
+  const records=Array.from({length:201},(_,i)=>transaction(i));
+  const load=makeLoader(async () => page(0,records,false));
+  await assert.rejects(load('mock-bank'),/Invalid transaction page/);
+});
