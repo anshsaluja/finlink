@@ -267,3 +267,31 @@ test('recovers after a null page response without retaining failed loading state
   assert.deepEqual(await load('mock-bank'),expected);
   assert.equal(calls,2);
 });
+
+test('rejects missing or malformed head-page responses during final verification', async () => {
+  const records=Array.from({length:201},(_,i)=>transaction(i));
+  for(const response of [null,undefined,false,'offline',{}]){
+    const load=makeLoader(async path => {
+      const offset=Number(new URL(path,'http://localhost').searchParams.get('offset'));
+      if(offset===200)return page(200,[records[200]],false);
+      if(offset===0 && ++reads===2)return response;
+      return page(0,records.slice(0,200),true);
+    });
+    let reads=0;
+    await assert.rejects(load('mock-bank'),/Transaction history changed during retrieval/);
+  }
+});
+
+test('recovers on retry after a missing head-page verification response', async () => {
+  const records=Array.from({length:201},(_,i)=>transaction(i));
+  let headReads=0;
+  const load=makeLoader(async path => {
+    const offset=Number(new URL(path,'http://localhost').searchParams.get('offset'));
+    if(offset===200)return page(200,[records[200]],false);
+    if(++headReads===2)return null;
+    return page(0,records.slice(0,200),true);
+  });
+  await assert.rejects(load('mock-bank'),/Transaction history changed during retrieval/);
+  assert.deepEqual(await load('mock-bank'),records);
+  assert.equal(headReads,4);
+});
