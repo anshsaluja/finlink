@@ -36,6 +36,9 @@ export const api={
    const result:Transaction[]=[];const seen=new Set<string>();const pageSize=200;
    for(let offset=0;offset<=1_000_000;offset+=pageSize){
      const page=await request<{transactions:Transaction[];limit:number;offset:number;has_more?:boolean}>(`${connectionPath(id)}/transactions?limit=${pageSize}&offset=${offset}`);
+     if(!page || typeof page!=='object'){
+       throw new Error('Invalid transaction page returned by the API; spending totals cannot be verified.');
+     }
      if(page.limit!==pageSize || page.offset!==offset){
        throw new Error('Transaction page metadata does not match the requested window; spending totals cannot be verified.');
      }
