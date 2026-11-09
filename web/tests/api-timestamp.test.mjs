@@ -127,3 +127,32 @@ test('rejects incomplete pages that claim more records exist', async () => {
   const load=makeLoader(async () => page(0,[transaction(1)],true));
   await assert.rejects(load('mock-bank'),/incomplete despite a continuation hint/);
 });
+
+test('rejects duplicate transaction identities within the same page', async () => {
+  const load=makeLoader(async () => page(0,[transaction('same'),transaction('same')],false));
+  await assert.rejects(load('mock-bank'),/Duplicate transaction ID/);
+});
+
+test('rejects malformed continuation metadata before trusting spending totals', async () => {
+  for(const has_more of ['false',1,null]){
+    const load=makeLoader(async () => page(0,[transaction(1)],has_more));
+    await assert.rejects(load('mock-bank'),/Invalid transaction continuation metadata/);
+  }
+});
+
+test('returns an empty transaction history without inventing purchases', async () => {
+  const load=makeLoader(async () => page(0,[],false));
+  assert.deepEqual(await load('mock-bank'),[]);
+});
+
+test('rejects changes to transaction amounts during the final head-page recheck', async () => {
+  const first=Array.from({length:200},(_,i)=>transaction(i));
+  let headReads=0;
+  const load=makeLoader(async path => {
+    const offset=Number(new URL(path,'http://localhost').searchParams.get('offset'));
+    if(offset===200)return page(200,[transaction(200)],false);
+    headReads++;
+    return page(0,headReads===1?first:[{...first[0],amount_cents:-999},...first.slice(1)],true);
+  });
+  await assert.rejects(load('mock-bank'),/history changed during retrieval/);
+});
