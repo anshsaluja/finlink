@@ -205,3 +205,34 @@ test('recovers after a transient failure on a later page without reusing partial
   assert.deepEqual(await load('mock-bank'),records);
   assert.deepEqual(offsets,[0,200,0,200,0]);
 });
+
+
+test('rejects timestamp changes during the final head-page recheck', async () => {
+  const first=Array.from({length:200},(_,i)=>transaction(i));
+  let reads=0;
+  const load=makeLoader(async path => {
+    const offset=Number(new URL(path,'http://localhost').searchParams.get('offset'));
+    if(offset===200)return page(200,[transaction(200)],false);
+    reads++;
+    return page(0,reads===1?first:[{...first[0],posted_at:'2026-11-09T12:00:00Z'},...first.slice(1)],true);
+  });
+  await assert.rejects(load('mock-bank'),/history changed during retrieval/);
+});
+
+test('recovers on retry when final head-page verification fails transiently', async () => {
+  const records=Array.from({length:201},(_,i)=>transaction(i));
+  let failOnce=true;
+  const offsets=[];
+  const load=makeLoader(async path => {
+    const offset=Number(new URL(path,'http://localhost').searchParams.get('offset'));
+    offsets.push(offset);
+    if(offset===0 && offsets.length===3 && failOnce){
+      failOnce=false;
+      throw new Error('Temporary verification outage');
+    }
+    return page(offset,records.slice(offset,offset+200),offset===0);
+  });
+  await assert.rejects(load('mock-bank'),/Temporary verification outage/);
+  assert.deepEqual(await load('mock-bank'),records);
+  assert.deepEqual(offsets,[0,200,0,0,200,0]);
+});
