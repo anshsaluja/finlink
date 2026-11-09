@@ -107,8 +107,16 @@ def main():
         assert exhausted["may_have_more"] is False, (provider, exhausted)
         assert exhausted["limit"] == 1 and exhausted["offset"] == offset, (provider, exhausted)
         # Re-reading the same connection must not change the visible financial data.
-        repeat = request("GET", path + "/transactions?limit=100&offset=0")
-        assert len(repeat["transactions"]) == len(seen), (provider, repeat)
+        # Revisit each page with the same boundaries to catch unstable ordering
+        # and ensure pagination never silently skips or repeats transactions.
+        repeated = set()
+        for repeat_offset in range(0, offset):
+            repeat = request("GET", path + f"/transactions?limit=1&offset={repeat_offset}")
+            assert len(repeat["transactions"]) == 1, (provider, repeat_offset, repeat)
+            tx = repeat["transactions"][0]
+            identity = tx.get("provider_external_id") or tx.get("fingerprint")
+            repeated.add((str(tx["connection_id"]), str(identity)))
+        assert repeated == seen, (provider, seen, repeated)
         print(f"PASS {provider}: {len(accounts)} accounts, {len(seen)} transactions")
 
     print("PASS mock-bank end-to-end smoke test")
