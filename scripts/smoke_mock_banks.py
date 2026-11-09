@@ -82,6 +82,9 @@ def main():
         while True:
             page = request("GET", path + f"/transactions?limit=1&offset={offset}")
             transactions = page["transactions"]
+            assert len(transactions) <= 1, (provider, offset, page)
+            assert page["limit"] == 1, (provider, page)
+            assert page["offset"] == offset, (provider, offset, page)
             for transaction in transactions:
                 # Canonical transactions expose provider_external_id and fingerprint,
                 # not a database-generated id. Match the identity used for deduplication.
@@ -98,6 +101,10 @@ def main():
             assert transactions, f"{provider} pagination stalled"
             assert offset <= 1000000, "pagination exceeded API maximum offset"
         assert seen, f"{provider} returned no transactions"
+        assert len(seen) == page["total"], (provider, len(seen), page)
+        # Re-reading the same connection must not change the visible financial data.
+        repeat = request("GET", path + "/transactions?limit=100&offset=0")
+        assert repeat["total"] == len(seen), (provider, repeat)
         print(f"PASS {provider}: {len(accounts)} accounts, {len(seen)} transactions")
 
     print("PASS mock-bank end-to-end smoke test")
