@@ -250,3 +250,20 @@ test('rejects oversized transaction pages before producing misleading totals', a
   const load=makeLoader(async () => page(0,records,false));
   await assert.rejects(load('mock-bank'),/Invalid transaction page/);
 });
+
+
+test('rejects null and non-object transaction page responses with an actionable error', async () => {
+  for (const response of [null, undefined, false, 'offline']) {
+    const load=makeLoader(async () => response);
+    await assert.rejects(load('mock-bank'),/Invalid transaction page returned by the API/);
+  }
+});
+
+test('recovers after a null page response without retaining failed loading state', async () => {
+  let calls=0;
+  const expected=[transaction('recovered')];
+  const load=makeLoader(async () => ++calls===1 ? null : page(0,expected,false));
+  await assert.rejects(load('mock-bank'),/Invalid transaction page returned by the API/);
+  assert.deepEqual(await load('mock-bank'),expected);
+  assert.equal(calls,2);
+});
