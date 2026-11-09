@@ -101,6 +101,11 @@ def main():
             assert transactions, f"{provider} pagination stalled"
             assert offset <= 1000000, "pagination exceeded API maximum offset"
         assert seen, f"{provider} returned no transactions"
+        # A page immediately beyond the last record must be empty and terminal.
+        exhausted = request("GET", path + f"/transactions?limit=1&offset={offset}")
+        assert exhausted["transactions"] == [], (provider, exhausted)
+        assert exhausted["may_have_more"] is False, (provider, exhausted)
+        assert exhausted["limit"] == 1 and exhausted["offset"] == offset, (provider, exhausted)
         # Re-reading the same connection must not change the visible financial data.
         repeat = request("GET", path + "/transactions?limit=100&offset=0")
         assert len(repeat["transactions"]) == len(seen), (provider, repeat)
