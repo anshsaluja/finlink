@@ -81,7 +81,13 @@ def main():
             page = request("GET", path + f"/transactions?limit=1&offset={offset}")
             transactions = page["transactions"]
             for transaction in transactions:
-                txid = str(transaction["id"])
+                # Canonical transactions expose provider_external_id and fingerprint,
+                # not a database-generated id. Match the identity used for deduplication.
+                external_id = transaction.get("provider_external_id")
+                fingerprint = transaction.get("fingerprint")
+                assert external_id or fingerprint, f"{provider} transaction has no identity: {transaction}"
+                txid = (str(transaction["connection_id"]), str(external_id or fingerprint))
+                assert txid[0] == connection_id, f"{provider} returned a foreign transaction: {transaction}"
                 assert txid not in seen, f"duplicate transaction: {txid}"
                 seen.add(txid)
             offset += len(transactions)
