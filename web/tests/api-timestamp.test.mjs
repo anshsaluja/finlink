@@ -156,3 +156,34 @@ test('rejects changes to transaction amounts during the final head-page recheck'
   });
   await assert.rejects(load('mock-bank'),/history changed during retrieval/);
 });
+
+
+test('recovers cleanly on retry after a malformed transaction page', async () => {
+  const expected=[transaction('recovered')];
+  let attempts=0;
+  const load=makeLoader(async () => {
+    attempts++;
+    return attempts===1
+      ? page(0,[{...transaction('bad'),posted_at:'2026-02-30T00:00:00Z'}],false)
+      : page(0,expected,false);
+  });
+  await assert.rejects(load('mock-bank'),/Invalid transaction timestamp/);
+  assert.deepEqual(await load('mock-bank'),expected);
+  assert.equal(attempts,2);
+});
+
+test('rejects an invalid second page without exposing a partial transaction history', async () => {
+  const first=Array.from({length:200},(_,i)=>transaction(i));
+  const load=makeLoader(async path => {
+    const offset=Number(new URL(path,'http://localhost').searchParams.get('offset'));
+    return offset===0?page(0,first,true):page(200,[{...transaction(200),amount_cents:1.5}],false);
+  });
+  await assert.rejects(load('mock-bank'),/Malformed transaction record/);
+});
+
+test('rejects missing or non-string transaction identities before computing spending', async () => {
+  for(const id of [undefined,null,'',123]){
+    const load=makeLoader(async () => page(0,[{...transaction('ok'),provider_external_id:id}],false));
+    await assert.rejects(load('mock-bank'),/Malformed transaction record/);
+  }
+});
