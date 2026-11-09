@@ -115,7 +115,11 @@ def main():
             assert len(repeat["transactions"]) == 1, (provider, repeat_offset, repeat)
             tx = repeat["transactions"][0]
             identity = tx.get("provider_external_id") or tx.get("fingerprint")
-            repeated.add((str(tx["connection_id"]), str(identity)))
+            assert identity, f"{provider} repeated page has transaction without identity: {tx}"
+            key = (str(tx["connection_id"]), str(identity))
+            assert key[0] == connection_id, f"{provider} repeated page returned foreign transaction: {tx}"
+            assert key not in repeated, f"{provider} repeated pagination returned duplicate: {key}"
+            repeated.add(key)
         assert repeated == seen, (provider, seen, repeated)
         print(f"PASS {provider}: {len(accounts)} accounts, {len(seen)} transactions")
 
