@@ -71,7 +71,7 @@ export const api={
        // Recheck the newest page before trusting the resulting analytics.
        if(offset>0){
          const head=await request<{transactions:Transaction[];limit:number;offset:number}>(`${connectionPath(id)}/transactions?limit=${pageSize}&offset=0`);
-         if(head.limit!==pageSize || head.offset!==0 || !Array.isArray(head.transactions) || head.transactions.length!==pageSize){
+         if(!head || typeof head!=='object' || head.limit!==pageSize || head.offset!==0 || !Array.isArray(head.transactions) || head.transactions.length!==pageSize){
            throw new Error('Transaction history changed during retrieval; retry to verify spending totals.');
          }
          const firstPage=result.slice(0,pageSize);
