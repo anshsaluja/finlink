@@ -45,6 +45,8 @@ jobs:
         run: go test ./...
       - name: Vet
         run: go vet ./...
+      - name: Validate mock-bank smoke runner syntax
+        run: python3 -c "import ast, pathlib; ast.parse(pathlib.Path('scripts/smoke_mock_banks.py').read_text())"
 
   dashboard:
     name: React dashboard
@@ -63,5 +65,80 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Typecheck
         run: npm run typecheck
+      - name: Timestamp regression tests
+        run: npm test
       - name: Build
         run: npm run build
+
+  mock-bank-integration:
+    name: Mock-bank Docker integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Start infrastructure and apply migrations
+        run: |
+          set -euo pipefail
+          docker compose up -d
+          for attempt in $(seq 1 60); do
+            if docker compose exec -T postgres pg_isready -U finlink -d finlink >/dev/null 2>&1 &&
+               docker compose exec -T kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1; then
+              break
+            fi
+            if [ "$attempt" -eq 60 ]; then echo "Infrastructure did not become ready"; exit 1; fi
+            sleep 3
+          done
+          for migration in migrations/*.up.sql; do
+            docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U finlink -d finlink < "$migration"
+          done
+          docker compose exec -T kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --if-not-exists --topic finlink.sync.requested --partitions 3 --replication-factor 1
+          docker compose exec -T kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --if-not-exists --topic finlink.sync.dead-letter --partitions 1 --replication-factor 1
+      - name: Run API, worker and both mock-bank smoke tests
+        run: |
+          set -euo pipefail
+          go build -o /tmp/finlink-api ./cmd/api
+          go build -o /tmp/finlink-worker ./cmd/worker
+          /tmp/finlink-api > /tmp/finlink-api.log 2>&1 &
+          api_pid=$!
+          /tmp/finlink-worker > /tmp/finlink-worker.log 2>&1 &
+          worker_pid=$!
+          trap 'kill "$api_pid" "$worker_pid" 2>/dev/null || true; cat /tmp/finlink-api.log /tmp/finlink-worker.log' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8080/health >/dev/null; then break; fi
+            if [ "$attempt" -eq 30 ]; then echo "API did not become ready"; exit 1; fi
+            sleep 2
+          done
+          echo "Starting Northstar and Harbor end-to-end smoke checks"
+          FINLINK_SMOKE_TIMEOUT_SECONDS=90 python3 -u scripts/smoke_mock_banks.py 2>&1 | tee /tmp/finlink-smoke.log
+      - name: Infrastructure diagnostics on failure
+        if: failure()
+        run: |
+          echo '--- Mock-bank smoke output ---'
+          if [ -f /tmp/finlink-smoke.log ]; then cat /tmp/finlink-smoke.log; fi
+          echo '--- API and worker output ---'
+          for logfile in /tmp/finlink-api.log /tmp/finlink-worker.log; do
+            if [ -f "$logfile" ]; then echo "--- $logfile ---"; tail -n 150 "$logfile"; fi
+          done
+          echo '--- Docker service status ---'
+          docker compose ps -a
+          docker compose logs --tail=120
+      - name: Upload mock-bank diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mock-bank-diagnostics
+          path: |
+            /tmp/finlink-smoke.log
+            /tmp/finlink-api.log
+            /tmp/finlink-worker.log
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Stop infrastructure
+        if: always()
+        run: docker compose down -v

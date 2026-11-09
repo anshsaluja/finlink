@@ -1,8 +1,10 @@
 import {FormEvent, useEffect, useMemo, useRef, useState} from 'react';
-import {api, Account, Connection, SyncRun, Transaction} from './api';
+import {api, Account, Connection, SyncRun, Transaction, validPostedAt} from './api';
 
 const money = (c:number, currency='USD') => new Intl.NumberFormat('en-US',{style:'currency',currency}).format(c/100);
-const monthOf = (date:string) => date.slice(0,7);
+const monthOf = (date:string) => new Date(date).toISOString().slice(0,7);
+const validDate = validPostedAt;
+const isUSD = (currency:string) => currency.trim().toUpperCase()==='USD';
 const categoryOf = (description:string) => {
   const d=description.toLowerCase();
   if (/transfer|zelle|payment from|payment to/.test(d)) return 'Transfers';
@@ -19,7 +21,7 @@ function spending(transactions:Transaction[],month:string) {
   const seen=new Set<string>(); const categories=new Map<string,number>(); const merchants=new Map<string,{amount:number,count:number}>();
   let total=0; let count=0;
   for(const t of transactions) {
-    if(monthOf(t.posted_at)!==month || t.currency!=='USD' || t.amount_cents>=0) continue;
+    if(!validDate(t.posted_at) || monthOf(t.posted_at)!==month || !isUSD(t.currency) || t.amount_cents>=0) continue;
     // Provider transaction IDs are stable within the selected connection. Never dedupe by amount/date.
     if(t.provider_external_id){if(seen.has(t.provider_external_id))continue;seen.add(t.provider_external_id);}
     const category=categoryOf(t.description);
@@ -29,7 +31,7 @@ function spending(transactions:Transaction[],month:string) {
     const merchant=merchantOf(t.description);const current=merchants.get(merchant)||{amount:0,count:0};
     merchants.set(merchant,{amount:current.amount+amount,count:current.count+1});
   }
-  return {total,count,categories:[...categories].sort((a,b)=>b[1]-a[1]),merchants:[...merchants].sort((a,b)=>b[1].amount-a[1].amount)};
+  return {total,count,categories:[...categories].sort((a,b)=>b[1]-a[1] || a[0].localeCompare(b[0])),merchants:[...merchants].sort((a,b)=>b[1].amount-a[1].amount || a[0].localeCompare(b[0]))};
 }
 export function App(){
   const [provider,setProvider]=useState('northstar'),[connection,setConnection]=useState<Connection|null>(null);
@@ -38,7 +40,7 @@ export function App(){
   const [month,setMonth]=useState('');
   // A response from an earlier connection must never overwrite the active institution.
   const activeConnectionId=useRef<string|null>(null);
-  const months=useMemo(()=>[...new Set(txns.filter(t=>t.currency==='USD' && /^\d{4}-(0[1-9]|1[0-2])-\d{2}/.test(t.posted_at)).map(t=>monthOf(t.posted_at)))].sort().reverse(),[txns]);
+  const months=useMemo(()=>[...new Set(txns.filter(t=>isUSD(t.currency) && validDate(t.posted_at)).map(t=>monthOf(t.posted_at)))].sort().reverse(),[txns]);
   const selectedMonth=months.includes(month)?month:months[0]||'';
   const insights=useMemo(()=>spending(txns,selectedMonth),[txns,selectedMonth]);
   const previousMonth=selectedMonth?new Date(selectedMonth+'-01T00:00:00Z'):null;
@@ -49,7 +51,36 @@ export function App(){
   // Plot only months represented in the synchronized history; missing months are not zero-spend months.
   const trend=useMemo(()=>months.slice(0,6).reverse().map(key=>({month:key,total:spending(txns,key).total})),[months,txns]);
   const trendMax=Math.max(1,...trend.map(point=>point.total));
-  const refresh=async(id:string)=>{setLoading(true);try{const [c,a,t]=await Promise.all([api.connection(id),api.accounts(id),api.allTransactions(id)]);if(activeConnectionId.current!==id)return;setConnection(c);setAccounts(a.accounts||[]);setTxns(t)}finally{if(activeConnectionId.current===id)setLoading(false)}};
+  const refresh=async(id:string)=>{
+    setLoading(true);
+    try {
+      // Restore the connection first so a failed records request still offers Retry.
+      const c=await api.connection(id);
+      if(activeConnectionId.current!==id)return;
+      setConnection(c);
+      const [a,t]=await Promise.all([api.accounts(id),api.allTransactions(id)]);
+      if(activeConnectionId.current!==id)return;
+      setAccounts(a.accounts||[]);
+      setTxns(t);
+      setError('');
+    } catch(e) {
+      if(activeConnectionId.current===id){
+        // Never show potentially stale balances or analytics after a failed refresh.
+        setAccounts([]);
+        setTxns([]);
+        setError(`Unable to verify synchronized records: ${(e as Error).message}`);
+      }
+    } finally {
+      if(activeConnectionId.current===id)setLoading(false);
+    }
+  };
+  // Restore only the connection ID; demo credentials are never persisted.
+  useEffect(()=>{
+    try {
+      const id=window.localStorage.getItem('finlink.connectionId');
+      if(id){activeConnectionId.current=id;void refresh(id)}
+    } catch { /* Private browsing can disable storage; manual connection still works. */ }
+  },[]);
   useEffect(()=>{if(!run||!connection||!['requested','processing'].includes(run.status))return;
     let active=true;let polling=false;const timer=setInterval(async()=>{if(polling)return;polling=true;try{const next=await api.syncRun(run.id);if(!active || activeConnectionId.current!==connection.id)return;setRun(next);
       if(next.status==='succeeded'){clearInterval(timer);await refresh(connection.id)}
@@ -58,17 +89,17 @@ export function App(){
   },[run,connection]);
   async function connect(e:FormEvent){e.preventDefault();setBusy(true);setError('');try{
     const credentials:Record<string,string>=provider==='northstar'?{username:'demo',password:'demo'}:{token:'demo'};
-    const c=await api.connect(provider,credentials);activeConnectionId.current=c.id;setLoading(false);setConnection(c);setAccounts([]);setTxns([]);setRun(null);setMonth('');
+    const c=await api.connect(provider,credentials);activeConnectionId.current=c.id;try{window.localStorage.setItem('finlink.connectionId',c.id)}catch{/* Storage is optional. */}setLoading(false);setConnection(c);setAccounts([]);setTxns([]);setRun(null);setMonth('');
   }catch(e){setError((e as Error).message)}finally{setBusy(false)}}
   async function sync(){if(!connection)return;const id=connection.id;setBusy(true);setError('');try{const next=await api.sync(id);if(activeConnectionId.current===id)setRun(next)}catch(e){if(activeConnectionId.current===id)setError((e as Error).message)}finally{setBusy(false)}}
   return <main><header><div><span className="eyebrow">FINANCIAL DATA CONNECTIVITY</span><h1>FinLink</h1><p>Connect a sandbox institution, synchronize transactions, and explore actual mock-bank records.</p></div><span className="badge">Sandbox · No live banks</span></header>
     <section className="panel connect"><div><h2>Institution connection</h2><p>Only synthetic demonstration credentials and data are used.</p></div><form onSubmit={connect}><label htmlFor="institution">Demo institution</label><select id="institution" value={provider} onChange={e=>setProvider(e.target.value)}><option value="northstar">Northstar Bank</option><option value="harbor">Harbor Credit Union</option></select><button type="submit" disabled={busy} aria-busy={busy}>{busy?'Connecting…':connection?'Connect another':'Connect institution'}</button></form></section>
-    {error&&<div className="error" role="alert">{error}</div>}
+    {error&&<div className="error" role="alert">{error}{connection&&<button type="button" onClick={()=>void refresh(connection.id)} disabled={loading}>Retry loading records</button>}</div>}
     {connection&&<><section className="status"><div><span>Institution</span><strong>{connection.institution}</strong></div><div><span>Connection</span><strong>{connection.status}</strong></div><div><span>Last sync</span><strong>{connection.last_synced_at?new Date(connection.last_synced_at).toLocaleString():'Not synced'}</strong></div><button type="button" onClick={sync} disabled={busy||!!run&&['requested','processing'].includes(run.status)}>{busy?'Requesting…':'Sync now'}</button></section>
       {run&&<div className={`run ${run.status}`} role="status" aria-live="polite"><strong>Sync #{run.id}</strong><span>{run.status}</span>{run.status==='succeeded'&&<span>{run.account_count} accounts · {run.transaction_count} transactions</span>}{run.error_message&&<span>{run.error_message}</span>}</div>}
       {loading&&<p role="status">Loading synchronized records…</p>}
       <div className="grid" aria-busy={loading}><section className="panel"><h2>Accounts</h2>{accounts.length===0?<p className="empty">{loading?'Loading accounts…':'Sync to load account balances.'}</p>:accounts.map(a=><article className="account" key={a.provider_external_id}><div><strong>{a.name}</strong><span>{a.type}</span></div><b>{money(a.balance_cents,a.currency)}</b></article>)}</section>
-      <section className="panel"><h2>Recent transactions</h2>{txns.length===0?<p className="empty">{loading?'Loading transactions…':'Sync to load transactions.'}</p>:<div className="transactions">{txns.map((t,i)=><article key={t.provider_external_id||i}><div><strong>{t.description}</strong><span>{new Date(t.posted_at).toLocaleDateString()}</span></div><b className={t.amount_cents<0?'debit':'credit'}>{money(t.amount_cents,t.currency)}</b></article>)}</div>}</section></div>
+      <section className="panel"><h2>Recent transactions</h2>{txns.length===0?<p className="empty">{loading?'Loading transactions…':'Sync to load transactions.'}</p>:<div className="transactions">{txns.map((t,i)=><article key={t.provider_external_id||i}><div><strong>{t.description}</strong><span>{validDate(t.posted_at)?new Date(t.posted_at).toLocaleDateString():'Unknown date'}</span></div><b className={t.amount_cents<0?'debit':'credit'}>{money(t.amount_cents,t.currency)}</b></article>)}</div>}</section></div>
       <section className="panel" aria-labelledby="spending-heading"><h2 id="spending-heading">Spending insights</h2><p>Calculated from synchronized USD transactions. Transfers and labeled refunds are excluded; credits are not counted as spending.</p>
       {months.length===0?<p className="empty">No transaction history available yet. Run a sync to explore spending.</p>:<>
       <label htmlFor="spending-month">Month</label> <select id="spending-month" value={selectedMonth} onChange={e=>setMonth(e.target.value)}>{months.map(m=><option key={m} value={m}>{m}</option>)}</select>
