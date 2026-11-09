@@ -3,6 +3,7 @@ import {api, Account, Connection, SyncRun, Transaction} from './api';
 
 const money = (c:number, currency='USD') => new Intl.NumberFormat('en-US',{style:'currency',currency}).format(c/100);
 const monthOf = (date:string) => new Date(date).toISOString().slice(0,7);
+const validDate = (date:string) => Number.isFinite(Date.parse(date));
 const isUSD = (currency:string) => currency.trim().toUpperCase()==='USD';
 const categoryOf = (description:string) => {
   const d=description.toLowerCase();
@@ -20,7 +21,7 @@ function spending(transactions:Transaction[],month:string) {
   const seen=new Set<string>(); const categories=new Map<string,number>(); const merchants=new Map<string,{amount:number,count:number}>();
   let total=0; let count=0;
   for(const t of transactions) {
-    if(!Number.isFinite(Date.parse(t.posted_at)) || monthOf(t.posted_at)!==month || !isUSD(t.currency) || t.amount_cents>=0) continue;
+    if(!validDate(t.posted_at) || monthOf(t.posted_at)!==month || !isUSD(t.currency) || t.amount_cents>=0) continue;
     // Provider transaction IDs are stable within the selected connection. Never dedupe by amount/date.
     if(t.provider_external_id){if(seen.has(t.provider_external_id))continue;seen.add(t.provider_external_id);}
     const category=categoryOf(t.description);
@@ -39,7 +40,7 @@ export function App(){
   const [month,setMonth]=useState('');
   // A response from an earlier connection must never overwrite the active institution.
   const activeConnectionId=useRef<string|null>(null);
-  const months=useMemo(()=>[...new Set(txns.filter(t=>isUSD(t.currency) && !Number.isNaN(Date.parse(t.posted_at))).map(t=>monthOf(t.posted_at)))].sort().reverse(),[txns]);
+  const months=useMemo(()=>[...new Set(txns.filter(t=>isUSD(t.currency) && validDate(t.posted_at)).map(t=>monthOf(t.posted_at)))].sort().reverse(),[txns]);
   const selectedMonth=months.includes(month)?month:months[0]||'';
   const insights=useMemo(()=>spending(txns,selectedMonth),[txns,selectedMonth]);
   const previousMonth=selectedMonth?new Date(selectedMonth+'-01T00:00:00Z'):null;
@@ -98,7 +99,7 @@ export function App(){
       {run&&<div className={`run ${run.status}`} role="status" aria-live="polite"><strong>Sync #{run.id}</strong><span>{run.status}</span>{run.status==='succeeded'&&<span>{run.account_count} accounts · {run.transaction_count} transactions</span>}{run.error_message&&<span>{run.error_message}</span>}</div>}
       {loading&&<p role="status">Loading synchronized records…</p>}
       <div className="grid" aria-busy={loading}><section className="panel"><h2>Accounts</h2>{accounts.length===0?<p className="empty">{loading?'Loading accounts…':'Sync to load account balances.'}</p>:accounts.map(a=><article className="account" key={a.provider_external_id}><div><strong>{a.name}</strong><span>{a.type}</span></div><b>{money(a.balance_cents,a.currency)}</b></article>)}</section>
-      <section className="panel"><h2>Recent transactions</h2>{txns.length===0?<p className="empty">{loading?'Loading transactions…':'Sync to load transactions.'}</p>:<div className="transactions">{txns.map((t,i)=><article key={t.provider_external_id||i}><div><strong>{t.description}</strong><span>{new Date(t.posted_at).toLocaleDateString()}</span></div><b className={t.amount_cents<0?'debit':'credit'}>{money(t.amount_cents,t.currency)}</b></article>)}</div>}</section></div>
+      <section className="panel"><h2>Recent transactions</h2>{txns.length===0?<p className="empty">{loading?'Loading transactions…':'Sync to load transactions.'}</p>:<div className="transactions">{txns.map((t,i)=><article key={t.provider_external_id||i}><div><strong>{t.description}</strong><span>{validDate(t.posted_at)?new Date(t.posted_at).toLocaleDateString():'Unknown date'}</span></div><b className={t.amount_cents<0?'debit':'credit'}>{money(t.amount_cents,t.currency)}</b></article>)}</div>}</section></div>
       <section className="panel" aria-labelledby="spending-heading"><h2 id="spending-heading">Spending insights</h2><p>Calculated from synchronized USD transactions. Transfers and labeled refunds are excluded; credits are not counted as spending.</p>
       {months.length===0?<p className="empty">No transaction history available yet. Run a sync to explore spending.</p>:<>
       <label htmlFor="spending-month">Month</label> <select id="spending-month" value={selectedMonth} onChange={e=>setMonth(e.target.value)}>{months.map(m=><option key={m} value={m}>{m}</option>)}</select>
