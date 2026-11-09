@@ -114,10 +114,31 @@ jobs:
             if [ "$attempt" -eq 30 ]; then echo "API did not become ready"; exit 1; fi
             sleep 2
           done
-          FINLINK_SMOKE_TIMEOUT_SECONDS=90 python3 scripts/smoke_mock_banks.py
+          echo "Starting Northstar and Harbor end-to-end smoke checks"
+          FINLINK_SMOKE_TIMEOUT_SECONDS=90 python3 -u scripts/smoke_mock_banks.py 2>&1 | tee /tmp/finlink-smoke.log
       - name: Infrastructure diagnostics on failure
         if: failure()
-        run: docker compose logs --tail=120
+        run: |
+          echo '--- Mock-bank smoke output ---'
+          if [ -f /tmp/finlink-smoke.log ]; then cat /tmp/finlink-smoke.log; fi
+          echo '--- API and worker output ---'
+          for logfile in /tmp/finlink-api.log /tmp/finlink-worker.log; do
+            if [ -f "$logfile" ]; then echo "--- $logfile ---"; tail -n 150 "$logfile"; fi
+          done
+          echo '--- Docker service status ---'
+          docker compose ps -a
+          docker compose logs --tail=120
+      - name: Upload mock-bank diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mock-bank-diagnostics
+          path: |
+            /tmp/finlink-smoke.log
+            /tmp/finlink-api.log
+            /tmp/finlink-worker.log
+          if-no-files-found: ignore
+          retention-days: 3
       - name: Stop infrastructure
         if: always()
         run: docker compose down -v
