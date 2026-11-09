@@ -1,9 +1,9 @@
 import {FormEvent, useEffect, useMemo, useRef, useState} from 'react';
-import {api, Account, Connection, SyncRun, Transaction} from './api';
+import {api, Account, Connection, SyncRun, Transaction, validPostedAt} from './api';
 
 const money = (c:number, currency='USD') => new Intl.NumberFormat('en-US',{style:'currency',currency}).format(c/100);
 const monthOf = (date:string) => new Date(date).toISOString().slice(0,7);
-const validDate = (date:string) => Number.isFinite(Date.parse(date));
+const validDate = validPostedAt;
 const isUSD = (currency:string) => currency.trim().toUpperCase()==='USD';
 const categoryOf = (description:string) => {
   const d=description.toLowerCase();
